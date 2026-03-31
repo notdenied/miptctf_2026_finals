@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: zbank
+      POSTGRES_USER: zbank
+      POSTGRES_PASSWORD: zbank
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zbank"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "1337:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  zbank-api:
+    build: ./zbank-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/zbank
+      SPRING_DATASOURCE_USERNAME: zbank
+      SPRING_DATASOURCE_PASSWORD: zbank
+      MINIO_ENDPOINT: http://minio:9000
+      CHART_SERVICE_URL: http://chart-service:8081
+    restart: unless-stopped
+
+  lighttpd:
+    build: ./lighttpd
+    ports:
+      - "8080:8080"
+    depends_on:
+      - zbank-api
+    restart: unless-stopped
+
+  chart-service:
+    build: ./chart-service
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  miniodata:
