@@ -1,0 +1,41 @@
+---
+- name: Get jury public key
+  hosts: jury
+  gather_facts: false
+  become: true
+  tasks:
+    - name: Slurp jury public key
+      ansible.builtin.slurp:
+        src: /etc/wireguard/public.key
+      register: jury_pub_slurp
+    - name: Expose jury_pubkey to all hosts
+      ansible.builtin.set_fact:
+        jury_pubkey: "{{ jury_pub_slurp.content | b64decode | trim }}"
+
+- name: relax players (drop /32 to own vulnbox)
+  hosts: player_core_*
+  gather_facts: false
+  become: true
+  vars:
+    allowed_ips_open_players: "{{ lan_subnet }},10.80.0.0/14"
+  tasks:
+    - name: player_core -> jury AllowedIPs
+      ansible.builtin.command:
+        cmd: >
+          wg set {{ lan }}
+          peer {{ hostvars['jury'].jury_pubkey }}
+          allowed-ips {{ allowed_ips_open_players }}
+
+- name: allow vulnbox cross-team via jury
+  hosts: vulnbox_core_*
+  gather_facts: false
+  become: true
+  vars:
+    allowed_ips_open_vuln: "{{ lan_subnet }},{{ vuln_supernet }}"
+  tasks:
+    - name: vulnbox_core -> jury AllowedIPs
+      ansible.builtin.command:
+        cmd: >
+          wg set {{ lan }}
+          peer {{ hostvars['jury'].jury_pubkey }}
+          allowed-ips {{ allowed_ips_open_vuln }}

@@ -1,0 +1,38 @@
+# ssh private key
+key: ~/.ssh/miptctf_finals_key
+
+# remote home directory
+home: /home/ubuntu/
+
+# count options
+team_count: 10
+players_count: 5
+client_base_dir: "/etc/wireguard/client"
+server_parts_dir: "/etc/wireguard/server"
+wg_dir: "/etc/wireguard"
+keepalive_seconds: 25
+wg_interface: wg0
+lan: jury_net
+
+# network control vars
+lan_subnet: 10.10.10.0/24
+vuln_supernet: 10.80.0.0/14
+vuln_host_suffix: 2
+jury_host: jury
+
+#ForcAD
+juryvpnpath: vpn-configs/jury/forcad.conf
+
+# Archives for teams
+release_root: "./release"
+player_cfg_root: "./vpn-configs/player"
+vuln_cfg_root: "./vpn-configs/vuln"
+teams_file: "./teams.yml"
+
+# Grafana configuration
+grafana_admin_password: "miptsosal123"
+
+# Connection retry configuration
+connection_retries: 20
+connection_delay: 20
+connection_timeout: 30

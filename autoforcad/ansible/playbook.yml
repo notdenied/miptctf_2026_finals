@@ -1,0 +1,147 @@
+---
+- name: Install wg on servers
+  hosts: all
+  remote_user: ubuntu
+  become: true
+  become_method: sudo
+  gather_facts: false
+  serial: 30
+
+  pre_tasks:
+    - name: Wait for SSH connection to be available with retries
+      ansible.builtin.wait_for_connection:
+        timeout: "{{ connection_timeout | default(30) }}"
+        connect_timeout: "{{ connection_timeout | default(30) }}"
+      retries: "{{ connection_retries | default(20) }}"
+      delay: "{{ connection_delay | default(20) }}"
+      register: connection_wait_result
+      until: connection_wait_result.failed == false
+      ignore_errors: true
+
+  roles:
+    - common-setup
+
+- name: Setup jury core server
+  hosts: jury
+  remote_user: ubuntu
+  become: true
+  become_method: sudo
+  vars:
+    vpn_octets: "10.10.10"
+    host_start: 11
+    role_offsets:
+      player_core: 1
+      vulnbox_core: 2
+    stride_per_team: "{{ (role_offsets | length) }}"
+
+  pre_tasks:
+    - name: Wait for SSH connection to be available with retries
+      ansible.builtin.wait_for_connection:
+        timeout: "{{ connection_timeout | default(30) }}"
+        connect_timeout: "{{ connection_timeout | default(30) }}"
+      retries: "{{ connection_retries | default(20) }}"
+      delay: "{{ connection_delay | default(20) }}"
+      register: connection_wait_result
+      until: connection_wait_result.failed == false
+      ignore_errors: true
+
+  roles:
+    - jury-setup
+    - exporter-setup
+
+- name: Setup core servers in parallel
+  hosts: player_core_*,vulnbox_core_*
+  become: true
+  strategy: free
+
+  pre_tasks:
+    - name: Wait for SSH connection to be available with retries
+      ansible.builtin.wait_for_connection:
+        timeout: "{{ connection_timeout | default(30) }}"
+        connect_timeout: "{{ connection_timeout | default(30) }}"
+      retries: "{{ connection_retries | default(20) }}"
+      delay: "{{ connection_delay | default(20) }}"
+      register: connection_wait_result
+      until: connection_wait_result.failed == false
+      ignore_errors: true
+
+  roles:
+    - { role: player-setup,  when: inventory_hostname is match('^player_core_') }
+    - { role: vulnbox-setup, when: inventory_hostname is match('^vulnbox_core_') }
+    - exporter-setup
+
+
+- name: Configure vulnboxes
+  strategy: free
+  hosts:
+    - vlnbx_*
+  remote_user: ubuntu
+  become_method: sudo
+
+  pre_tasks:
+    - name: Wait for SSH connection to be available with retries
+      ansible.builtin.wait_for_connection:
+        timeout: "{{ connection_timeout | default(30) }}"
+        connect_timeout: "{{ connection_timeout | default(30) }}"
+      retries: "{{ connection_retries | default(20) }}"
+      delay: "{{ connection_delay | default(20) }}"
+      register: connection_wait_result
+      until: connection_wait_result.failed == false
+      ignore_errors: true
+
+  roles:
+    - docker-install
+    - vb-setup
+
+
+- name: Generate archives
+  hosts: localhost
+  
+  roles:
+    - archives
+
+- name: Setup Prometheus and Grafana
+  hosts:
+    - monitoring
+  remote_user: ubuntu
+  become: true
+  become_method: sudo
+
+  pre_tasks:
+    - name: Wait for SSH connection to be available with retries
+      ansible.builtin.wait_for_connection:
+        timeout: "{{ connection_timeout | default(30) }}"
+        connect_timeout: "{{ connection_timeout | default(30) }}"
+      retries: "{{ connection_retries | default(20) }}"
+      delay: "{{ connection_delay | default(20) }}"
+      register: connection_wait_result
+      until: connection_wait_result.failed == false
+      ignore_errors: true
+
+  roles:
+    - prometheus-setup
+    - docker-install
+    - grafana-setup
+
+- name: Configure forcad
+  hosts:
+    - forcad
+  remote_user: ubuntu
+  become_method: sudo
+
+  pre_tasks:
+    - name: Wait for SSH connection to be available with retries
+      ansible.builtin.wait_for_connection:
+        timeout: "{{ connection_timeout | default(30) }}"
+        connect_timeout: "{{ connection_timeout | default(30) }}"
+      retries: "{{ connection_retries | default(20) }}"
+      delay: "{{ connection_delay | default(20) }}"
+      register: connection_wait_result
+      until: connection_wait_result.failed == false
+      ignore_errors: true
+
+  roles:
+    - docker-install
+    - exporter-setup
+    - forcad-setup
+

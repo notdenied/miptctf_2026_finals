@@ -1,0 +1,43 @@
+---
+
+  - name: Derive team_id from current host
+    set_fact:
+      team_id: "{{ (inventory_hostname | regex_search('\\d+$')) | int }}"
+      
+  - name: Set hostname
+    become: true
+    ansible.builtin.hostname:
+      name: vuln-{{team_id}}
+
+  - name: Deliver vpn configs
+    become: true
+    copy:
+      src: "vpn-configs/vuln/team-{{ team_id }}/vuln.conf"
+      dest: "/etc/wireguard/game.conf"
+
+  - name: enable wg client at boot
+    become: true
+    systemd:
+      name: wg-quick@game
+      enabled: yes
+      state: started
+
+  - name: Deliver vuln services
+    copy:
+        src: services.tar
+        dest: ~/
+
+  - name: Untar
+    shell: tar -xvf ~/services.tar
+  
+  - name: Start services in background
+    become: true
+    shell: |
+      nohup bash {{home}}/services/start_all.sh > /tmp/start_all.log 2>&1 &
+    async: 0
+    poll: 0
+
+  # - name: Start all vpns
+  #   become: true
+  #   shell: for config in /opt/*; do openvpn "$config" & done
+

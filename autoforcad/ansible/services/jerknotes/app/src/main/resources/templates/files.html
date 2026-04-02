@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jerkv Notes — Файлы</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .fade-in {
+            animation: fadeIn 1s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: none; }
+        }
+        .card {
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            border-radius: 1.5rem;
+            border: none;
+        }
+        .brand {
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: 700;
+            font-size: 2.2rem;
+            color: #6366f1;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 8px #c7d2fe;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #6366f1 0%, #a5b4fc 100%);
+            border: none;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 4px 16px #6366f1aa;
+            transform: translateY(-2px) scale(1.03);
+        }
+        .file-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .file-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.25);
+        }
+        .file-icon {
+            font-size: 2rem;
+            color: #6366f1;
+        }
+        .navbar-nav .dropdown-toggle::after {
+            display: none;
+        }
+        .upload-zone {
+            border: 2px dashed #6366f1;
+            border-radius: 1rem;
+            padding: 3rem 2rem;
+            text-align: center;
+            background: rgba(99, 102, 241, 0.05);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .upload-zone:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: #4f46e5;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1 brand"><i class="bi bi-journal-text"></i> Jerkv Notes</span>
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle"></i> Меню
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/profile"><i class="bi bi-person"></i> Профиль</a></li>
+                        <li><a class="dropdown-item" href="/profile/notes"><i class="bi bi-journal-text"></i> Заметки</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/logout"><i class="bi bi-box-arrow-right"></i> Выход</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <main class="container mt-4 flex-grow-1">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-dark">Мои файлы</h2>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="upload-zone fade-in" onclick="document.getElementById('fileInput').click();">
+                    <i class="bi bi-cloud-upload file-icon mb-3"></i>
+                    <h4 class="text-muted">Перетащите файлы сюда или нажмите для выбора</h4>
+                    <p class="text-muted small">Поддерживаются все типы файлов</p>
+                    <input type="file" id="fileInput" style="display: none;" multiple>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row g-4" id="filesContainer">
+            <div class="col-12 text-center">
+                <p class="text-muted">Загружаем список файлов...</p>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="text-center text-muted py-3 small mt-auto">&copy; 2025 Jerkv Notes</footer>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFiles();
+        });
+        
+        function loadFiles() {
+            fetch('/api/files/list')
+                .then(response => response.json())
+                .then(files => {
+                    const container = document.getElementById('filesContainer');
+                    if (files.length === 0) {
+                        container.innerHTML = '<div class="col-12 text-center"><p class="text-muted">У вас пока нет загруженных файлов</p></div>';
+                    } else {
+                        container.innerHTML = files.map(fileName => {
+                            const fileExtension = fileName.split('.').pop().toLowerCase();
+                            let icon = 'bi-file-earmark';
+                            
+                            if (['jpg', 'jpeg', 'png', 'gif'].includes(fileExtension)) {
+                                icon = 'bi-file-earmark-image';
+                            } else if (['pdf'].includes(fileExtension)) {
+                                icon = 'bi-file-earmark-pdf';
+                            } else if (['doc', 'docx'].includes(fileExtension)) {
+                                icon = 'bi-file-earmark-word';
+                            } else if (['txt'].includes(fileExtension)) {
+                                icon = 'bi-file-earmark-text';
+                            }
+                            
+                            return `
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="card fade-in h-100">
+                                        <div class="card-body text-center">
+                                            <i class="bi ${icon} file-icon mb-3"></i>
+                                            <h6 class="card-title">${fileName}</h6>
+                                            <div class="btn-group mt-3">
+                                                <a href="/api/files/download/${encodeURIComponent(fileName)}" 
+                                                   class="btn btn-outline-primary btn-sm">
+                                                    <i class="bi bi-download"></i> Скачать
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading files:', error);
+                    document.getElementById('filesContainer').innerHTML = 
+                        '<div class="col-12 text-center"><p class="text-danger">Ошибка загрузки файлов</p></div>';
+                });
+        }
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                for (let file of files) {
+                    uploadFile(file);
+                }
+            }
+        });
+        
+        // Drag and drop functionality
+        const uploadZone = document.querySelector('.upload-zone');
+        
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight(e) {
+            uploadZone.style.background = 'rgba(99, 102, 241, 0.15)';
+        }
+        
+        function unhighlight(e) {
+            uploadZone.style.background = 'rgba(99, 102, 241, 0.05)';
+        }
+        
+        uploadZone.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            for (let file of files) {
+                uploadFile(file);
+            }
+        }
+        
+        function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/api/files/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(data => {
+                console.log('File uploaded:', data);
+                loadFiles(); // Перезагружаем список файлов
+            })
+            .catch(error => {
+                console.error('Upload error:', error);
+                alert('Ошибка загрузки файла: ' + error.message);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+prometheus_version: "2.48.0"
+prometheus_user: "prometheus"
+
+# Auth
+prometheus_auth_user: "admin"
+prometheus_auth_password: "miptsosal123"
+
+# Paths
+prometheus_config_dir: /etc/prometheus
+prometheus_data_dir: /var/lib/prometheus
+
+# Network
+prometheus_listen_address: "127.0.0.1:9090"
+nginx_listen_port: 9091

@@ -1,0 +1,42 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'ctf-monitor'
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node exporters on routers
+  - job_name: 'node-exporter'
+    static_configs:
+{% for host in groups['all'] %}
+{% if host is match('^player_core_') %}
+      - targets: ['{{ hostvars[host]['ansible_host'] | default(host) }}:9100']
+        labels:
+          instance: '{{ host }}'
+          role: 'player-core'
+{% endif %}
+{% if host is match('^vulnbox_core_') %}
+      - targets: ['{{ hostvars[host]['ansible_host'] | default(host) }}:9100']
+        labels:
+          instance: '{{ host }}'
+          role: 'vulnbox-core'
+{% endif %}
+{% if host == 'jury' %}
+      - targets: ['{{ hostvars['jury']['ansible_host'] | default('jury') }}:9100']
+        labels:
+          instance: 'jury'
+          role: 'jury'
+{% endif %}
+{% if host == 'forcad' %}
+      - targets: ['{{ hostvars['forcad']['ansible_host'] | default('forcad') }}:9100']
+        labels:
+          instance: 'forcad'
+          role: 'forcad'
+{% endif %}
+{% endfor %}
+

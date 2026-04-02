@@ -1,0 +1,18 @@
+ssh ubuntu@{{ vuln_ip_game }}
+password: {{ vuln_pass }}
+
+White IP vulnbox: {{ vuln_ip_white }}
+
+To connect to the game network, use one of player-<N>.conf config files. Each team member must use the unique config file (!!!). Install Wireguard with the following command:
+
+sudo apt-get update && sudo apt-get install -y wireguard
+
+Then connect by running
+
+wg-quick up ./player-<N>.conf
+
+If you're want a self-hosted setup. Don't forget disable config on provided vulnbox.
+Connect to the game network by running the following commands on your vulnbox (assuming Ubuntu):
+
+sudo apt-get update && sudo apt-get install -y wireguard
+wg-quick up ./vuln.conf

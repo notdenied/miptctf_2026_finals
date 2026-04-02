@@ -1,0 +1,132 @@
+- name: Stop and disable unattended-upgrades service
+  become: true
+  systemd:
+    name: unattended-upgrades
+    state: stopped
+    enabled: no
+  ignore_errors: true
+
+- name: Kill unattended-upgrades process if running
+  become: true
+  shell: |
+    pkill -9 unattended-upgr || true
+    sleep 2
+  ignore_errors: true
+
+- name: Wait for dpkg lock to be released
+  become: true
+  shell: |
+    timeout=300
+    elapsed=0
+    while [ $elapsed -lt $timeout ]; do
+      # Check if lock is held
+      if ! lsof /var/lib/dpkg/lock-frontend 2>/dev/null && ! fuser /var/lib/dpkg/lock-frontend 2>/dev/null && ! lsof /var/lib/dpkg/lock 2>/dev/null; then
+        exit 0
+      fi
+      # If unattended-upgrades is still running, kill it
+      if pgrep -f unattended-upgr > /dev/null; then
+        pkill -9 -f unattended-upgr || true
+        sleep 2
+      fi
+      sleep 5
+      elapsed=$((elapsed + 5))
+    done
+    # Last resort: kill any process holding the lock
+    lsof /var/lib/dpkg/lock-frontend 2>/dev/null | awk 'NR>1 {print $2}' | xargs -r kill -9 2>/dev/null || true
+    lsof /var/lib/dpkg/lock 2>/dev/null | awk 'NR>1 {print $2}' | xargs -r kill -9 2>/dev/null || true
+    sleep 2
+    # Final check
+    if ! lsof /var/lib/dpkg/lock-frontend 2>/dev/null && ! fuser /var/lib/dpkg/lock-frontend 2>/dev/null && ! lsof /var/lib/dpkg/lock 2>/dev/null; then
+      exit 0
+    fi
+    exit 1
+  register: wait_lock_result
+  retries: 3
+  delay: 10
+  until: wait_lock_result.rc == 0
+  ignore_errors: true
+
+- name: Delete unattended-upgrades
+  become: true
+  apt:
+    name: unattended-upgrades
+    state: absent
+  register: remove_result
+  retries: 3
+  delay: 10
+  until: remove_result.failed == false
+  ignore_errors: true
+
+- name: Ensure unattended-upgrades is stopped before apt operations
+  become: true
+  shell: |
+    systemctl stop unattended-upgrades 2>/dev/null || true
+    pkill -9 -f unattended-upgr 2>/dev/null || true
+    sleep 1
+  ignore_errors: true
+
+- name: Wait for dpkg lock before apt update
+  become: true
+  shell: |
+    timeout=60
+    elapsed=0
+    while [ $elapsed -lt $timeout ]; do
+      if ! lsof /var/lib/dpkg/lock-frontend 2>/dev/null && ! fuser /var/lib/dpkg/lock-frontend 2>/dev/null && ! lsof /var/lib/dpkg/lock 2>/dev/null; then
+        exit 0
+      fi
+      pkill -9 -f unattended-upgr 2>/dev/null || true
+      sleep 2
+      elapsed=$((elapsed + 2))
+    done
+    exit 0
+  ignore_errors: true
+
+- name: Update apt packages
+  become: true
+  apt:
+    upgrade: no
+    update_cache: yes
+  register: apt_update_result
+  retries: 3
+  delay: 10
+  until: apt_update_result.failed == false
+  ignore_errors: true
+
+- name: Ensure unattended-upgrades is stopped before installation
+  become: true
+  shell: |
+    systemctl stop unattended-upgrades 2>/dev/null || true
+    pkill -9 -f unattended-upgr 2>/dev/null || true
+    sleep 1
+  ignore_errors: true
+
+- name: Wait for dpkg lock before installation
+  become: true
+  shell: |
+    timeout=60
+    elapsed=0
+    while [ $elapsed -lt $timeout ]; do
+      if ! lsof /var/lib/dpkg/lock-frontend 2>/dev/null && ! fuser /var/lib/dpkg/lock-frontend 2>/dev/null && ! lsof /var/lib/dpkg/lock 2>/dev/null; then
+        exit 0
+      fi
+      pkill -9 -f unattended-upgr 2>/dev/null || true
+      sleep 2
+      elapsed=$((elapsed + 2))
+    done
+    exit 0
+  ignore_errors: true
+    
+- name: Install WireGuard and related packages
+  become: true
+  apt:
+    name:
+      - wireguard
+      - resolvconf
+      - python3-pip
+      - unzip
+    state: present
+  register: apt_install_result
+  retries: 5
+  delay: 15
+  until: apt_install_result.failed == false
+  ignore_errors: true

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Mini Mail — Вход / Регистрация</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body{background:linear-gradient(180deg,#f7fbff,#f1f5ff);min-height:100vh;display:flex;align-items:center;justify-content:center}
+        .auth-card{width:100%;max-width:520px;border-radius:14px;box-shadow:0 12px 40px rgba(99,102,241,0.08);overflow:hidden}
+        .auth-header{background:linear-gradient(90deg,#6366f1,#8b7bff);color:#fff;padding:20px}
+        .brand{font-weight:700;letter-spacing:1px}
+        .nav-pill .btn{border-radius:999px}
+        .small-muted{color:#bdc3ce;font-size:.9rem}
+    </style>
+</head>
+<body>
+        <div class="card auth-card">
+            <div class="auth-header d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-3">
+                    <i class="bi bi-journal-text fs-3"></i>
+                    <div>
+                        <div class="brand">Jerkv Mail</div>
+                        <div class="small-muted">Лёгкий почтовый ящик</div>
+                    </div>
+                </div>
+            <div>
+                <a href="/" class="btn btn-sm btn-light">Back</a>
+            </div>
+        </div>
+        <div class="p-4 bg-white">
+            <div id="alertMessage" style="display:none"></div>
+
+            <div class="d-flex justify-content-center mb-3 nav-pill" style="gap:10px">
+                <button id="tabLogin" class="btn btn-sm btn-outline-primary me-2">Вход</button>
+                <button id="tabRegister" class="btn btn-sm btn-primary">Регистрация</button>
+            </div>
+
+            <div id="loginForm" style="display:none">
+                <p class="small-muted text-center">Войдите, чтобы открыть почтовый ящик.</p>
+                <form id="loginFormSubmit" class="mt-3">
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                        <input id="loginEmail" class="form-control" type="email" placeholder="you@example.com" required>
+                    </div>
+                    <div class="mb-3 input-group">
+                        <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                        <input id="loginPassword" class="form-control" type="password" placeholder="Пароль" required>
+                    </div>
+                    <button class="btn btn-primary w-100" type="submit">Войти</button>
+                </form>
+            </div>
+
+            <div id="registerForm">
+                <p class="small-muted text-center">Создайте аккаунт и начните получать письма.</p>
+                <form id="registerFormSubmit" class="mt-3">
+                    <div class="mb-2 input-group">
+                        <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                        <input id="registerEmail" class="form-control" type="email" placeholder="you@example.com" required>
+                    </div>
+                    <div class="mb-3 input-group">
+                        <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                        <input id="registerPassword" class="form-control" type="password" placeholder="Пароль" required>
+                    </div>
+                    <button class="btn btn-primary w-100" type="submit">Создать аккаунт</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const tabLogin = document.getElementById('tabLogin');
+        const tabRegister = document.getElementById('tabRegister');
+        const loginForm = document.getElementById('loginForm');
+        const registerForm = document.getElementById('registerForm');
+        const alertMessage = document.getElementById('alertMessage');
+
+        function showAlert(type, text){ alertMessage.style.display='block'; alertMessage.className = 'alert alert-' + type; alertMessage.textContent = text; }
+        function clearAlert(){ alertMessage.style.display='none'; alertMessage.className=''; alertMessage.textContent=''; }
+
+        tabLogin.addEventListener('click', ()=>{ clearAlert(); loginForm.style.display='block'; registerForm.style.display='none'; tabLogin.classList.add('btn-primary'); tabLogin.classList.remove('btn-outline-primary'); tabRegister.classList.remove('btn-primary'); tabRegister.classList.add('btn-outline-primary'); });
+        tabRegister.addEventListener('click', ()=>{ clearAlert(); loginForm.style.display='none'; registerForm.style.display='block'; tabRegister.classList.add('btn-primary'); tabRegister.classList.remove('btn-outline-primary'); tabLogin.classList.remove('btn-primary'); tabLogin.classList.add('btn-outline-primary'); });
+
+        async function postJson(path, body){ const res = await fetch(path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body), credentials:'include' }); return res; }
+
+        document.getElementById('registerFormSubmit').addEventListener('submit', async (e)=>{
+            e.preventDefault(); clearAlert();
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            try{
+                const r = await postJson('/register', { email, password });
+                if (r.ok){ showAlert('success','Аккаунт создан. Выполняем вход...');
+                    const login = await postJson('/login', { email, password });
+                    if (login.ok) { window.location.href = '/mails_page'; }
+                    else { showAlert('warning','Аккаунт создан — пожалуйста, войдите.'); tabLogin.click(); }
+                } else { const json = await r.json().catch(()=>({})); showAlert('danger', json.message || 'Не удалось зарегистрировать'); }
+            }catch(err){ showAlert('danger','Ошибка сети'); }
+        });
+
+        document.getElementById('loginFormSubmit').addEventListener('submit', async (e)=>{
+            e.preventDefault(); clearAlert();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            try{
+                const r = await postJson('/login', { email, password });
+                if (r.ok) window.location.href = '/mails_page';
+                else { const json = await r.json().catch(()=>({})); showAlert('danger', json.message || 'Не удалось войти'); }
+            }catch(err){ showAlert('danger','Ошибка сети'); }
+        });
+
+        tabRegister.classList.add('btn-primary'); tabLogin.classList.add('btn-outline-primary'); loginForm.style.display='none'; registerForm.style.display='block';
+    </script>
+</body>
+</html>

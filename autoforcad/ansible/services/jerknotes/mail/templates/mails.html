@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Jerkv Mail — Входящие</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+        <style>
+            body { background:#f6f8ff; }
+            .inbox-card { max-width: 900px; margin: 34px auto; }
+            .mail-row { transition: background .12s ease; border-radius:8px; margin-bottom:10px; padding:12px; background:#fbfdff; }
+            .mail-row .meta { color:#6b7280; font-size:.9rem }
+            .mail-subject { font-weight:600; color:#111827 }
+            .mail-excerpt { color:#374151; margin-top:6px; max-height:48px; overflow:hidden; text-overflow:ellipsis }
+            .toolbar { display:flex; gap:8px }
+            .brand { color:#4f46e5; font-weight:700 }
+        </style>
+    </head>
+    <body>
+        <div class="container inbox-card">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="brand"><i class="bi bi-journal-text"></i> Jerkv Mail</div>
+                            <div class="text-muted small">Входящие</div>
+                        </div>
+                        <div class="toolbar">
+                            <button id="btnRefresh" class="btn btn-sm btn-outline-secondary">Обновить</button>
+                            <a href="/" class="btn btn-sm btn-outline-secondary">Назад</a>
+                            <button id="btnLogout" class="btn btn-sm btn-outline-danger">Выйти</button>
+                        </div>
+                    </div>
+
+                    <div id="alerts"></div>
+
+                                        <div id="mailList">
+                                                <div class="text-muted small">Loading...</div>
+                                        </div>
+                </div>
+            </div>
+        </div>
+
+                <!-- Mail content modal -->
+                <div class="modal fade" id="mailModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="mailModalTitle">Письмо</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body" id="mailModalBody"></div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                                <button id="modalDelete" type="button" class="btn btn-danger">Удалить</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+            const alerts = document.getElementById('alerts');
+            const mailList = document.getElementById('mailList');
+            const mailModal = new bootstrap.Modal(document.getElementById('mailModal'));
+            let currentMailId = null;
+
+            async function fetchJson(path, opts={}){
+                opts.credentials='include';
+                const r = await fetch(path, opts);
+                if(!r.ok){
+                    // try to get response text for better error reporting
+                    let text = await r.text().catch(()=>null);
+                    const err = new Error('HTTP ' + r.status + (text ? ': ' + text.slice(0,200) : ''));
+                    err.status = r.status; err.body = text;
+                    throw err;
+                }
+                const contentType = r.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')){
+                    const text = await r.text().catch(()=>null);
+                    const err = new Error('Expected JSON but got: ' + (text ? text.slice(0,300) : 'empty'));
+                    err.body = text; err.status = r.status;
+                    throw err;
+                }
+                return await r.json();
+            }
+
+            function escapeHtml(s){ if(!s) return ''; const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}; return String(s).replace(/[&<>\"']/g, c => map[c]); }
+
+            async function loadMails(){
+                mailList.innerHTML = '<div class="text-muted small">Loading...</div>';
+                try{
+                    const data = await fetchJson('/mails');
+                    if(!Array.isArray(data) || data.length === 0){
+                        mailList.innerHTML = '<div class="text-center text-muted py-3">Писем нет</div>';
+                        return;
+                    }
+                    mailList.innerHTML = '';
+                    data.forEach(m => {
+                        const el = document.createElement('div');
+                        el.className = 'mail-row d-flex justify-content-between align-items-start';
+                        el.innerHTML = `
+                          <div class="flex-grow-1 me-3">
+                            <div class="mail-subject">${escapeHtml(m.subject||'(без темы)')}</div>
+                            <div class="meta small">${new Date(m.timestamp).toLocaleString()}</div>
+                            <div class="mail-excerpt">${escapeHtml((m.content||'').replace(/\n/g,' '))}</div>
+                          </div>
+                          <div class="d-flex flex-column align-items-end">
+                            <button class="btn btn-sm btn-link btn-view" data-id="${m.id}">Открыть</button>
+                            <button class="btn btn-sm btn-outline-danger btn-delete mt-2" data-id="${m.id}">Удалить</button>
+                          </div>`;
+                        mailList.appendChild(el);
+                    });
+                    attachHandlers();
+                }catch(e){
+                    console.error('loadMails error', e);
+                    const msg = e && e.message ? e.message : 'Не удалось загрузить письма';
+                    alerts.innerHTML = `<div class="alert alert-danger">Ошибка: ${escapeHtml(msg)}</div>`;
+                }
+            }
+
+            function attachHandlers(){
+                document.querySelectorAll('.btn-view').forEach(btn => btn.addEventListener('click', async ()=>{
+                    const id = btn.getAttribute('data-id');
+                    try{
+                        const note = await fetchJson(`/mails?id=${encodeURIComponent(id)}`);
+                        document.getElementById('mailModalTitle').textContent = note.subject || '(без темы)';
+                        document.getElementById('mailModalBody').innerHTML = '<div class="small text-muted mb-2">' + new Date(note.timestamp).toLocaleString() + '</div><div>' + escapeHtml(note.content || '') + '</div>';
+                        currentMailId = id;
+                        mailModal.show();
+                    }catch(e){ console.error('open mail error', e); alerts.innerHTML = `<div class="alert alert-danger">Не удалось открыть письмо: ${escapeHtml(e.message || '')}</div>`; }
+                }));
+
+                document.querySelectorAll('.btn-delete').forEach(btn => btn.addEventListener('click', async ()=>{
+                    const id = btn.getAttribute('data-id');
+                    try{
+                        const r = await fetch(`/mails/delete?id=${encodeURIComponent(id)}`, { method:'POST', credentials:'include' });
+                        if(!r.ok) throw r;
+                        loadMails();
+                    }catch(e){ alerts.innerHTML = '<div class="alert alert-danger">Удаление не удалось</div>'; }
+                }));
+            }
+
+            document.getElementById('modalDelete').addEventListener('click', async ()=>{
+                if(!currentMailId) return;
+                try{
+                    const r = await fetch(`/mails/delete?id=${encodeURIComponent(currentMailId)}`, { method:'POST', credentials:'include' });
+                    if(!r.ok) throw r;
+                    mailModal.hide();
+                    loadMails();
+                }catch(e){ alerts.innerHTML = '<div class="alert alert-danger">Удаление не удалось</div>'; }
+            });
+
+            document.getElementById('btnRefresh').addEventListener('click', () => loadMails());
+            document.getElementById('btnLogout').addEventListener('click', async ()=>{
+                try{
+                    const r = await fetch('/logout', { method: 'POST', credentials: 'include' });
+                    if (r.ok) {
+                        window.location.href = '/login';
+                    } else {
+                        alerts.innerHTML = '<div class="alert alert-danger">Не удалось выйти</div>';
+                    }
+                } catch (e) {
+                    alerts.innerHTML = '<div class="alert alert-danger">Ошибка сети</div>';
+                }
+            });
+            loadMails();
+        </script>
+    </body>
+</html>

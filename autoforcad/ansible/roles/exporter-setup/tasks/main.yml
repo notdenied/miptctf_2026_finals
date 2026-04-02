@@ -1,0 +1,83 @@
+---
+- name: Create prometheus user
+  become: true
+  user:
+    name: prometheus
+    system: yes
+    shell: /bin/false
+    home: /var/lib/prometheus
+    create_home: yes
+
+- name: Get node_exporter version
+  set_fact:
+    node_exporter_version: "1.7.0"
+
+- name: Download node_exporter
+  become: true
+  get_url:
+    url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+    dest: /tmp/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+    mode: '0644'
+    timeout: 60
+  register: node_exporter_download_result
+  retries: 10
+  delay: 15
+  until: node_exporter_download_result.failed == false
+  ignore_errors: false
+
+- name: Extract node_exporter
+  become: true
+  unarchive:
+    src: /tmp/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+    dest: /tmp
+    remote_src: yes
+
+- name: Copy node_exporter binary
+  become: true
+  command: >
+    install -m 0755 -o root -g root
+    /tmp/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter
+    /usr/local/bin/node_exporter
+
+- name: Create systemd service file for node_exporter
+  become: true
+  copy:
+    dest: /etc/systemd/system/node_exporter.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Node Exporter
+      After=network.target
+
+      [Service]
+      User=prometheus
+      Group=prometheus
+      Type=simple
+      ExecStart=/usr/local/bin/node_exporter
+      Restart=always
+      RestartSec=5
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Cleanup temporary files
+  become: true
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz
+    - /tmp/node_exporter-{{ node_exporter_version }}.linux-amd64
+
+- name: Reload systemd daemon
+  become: true
+  systemd:
+    daemon_reload: yes
+
+- name: Enable node_exporter service
+  become: true
+  systemd:
+    name: node_exporter
+    enabled: yes
+    state: started
+

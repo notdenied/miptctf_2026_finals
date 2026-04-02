@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jerkv Notes — Заметки</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .fade-in {
+            animation: fadeIn 1s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .navbar-brand {
+            font-weight: 600;
+            color: #6366f1 !important;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5b5ad6 0%, #7c3aed 100%);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container">
+            <a class="navbar-brand" href="/profile">
+                <i class="bi bi-journal-text me-2"></i>Jerkv Notes
+            </a>
+            <div class="navbar-nav ms-auto">
+                <div class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle me-1"></i>Меню
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="/profile"><i class="bi bi-person"></i> Профиль</a></li>
+                        <li><a class="dropdown-item" href="/profile/files"><i class="bi bi-folder"></i> Файлы</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="/logout"><i class="bi bi-box-arrow-right"></i> Выход</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <main class="container mt-4 flex-grow-1">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-dark">Мои заметки</h2>
+            <div>
+                <button id="backupBtn" class="btn btn-outline-secondary me-2">
+                    <i class="bi bi-cloud-download"></i> Бекап
+                </button>
+                <button id="restoreBtn" class="btn btn-outline-warning me-2">
+                    <i class="bi bi-cloud-upload"></i> Восстановить
+                </button>
+                <a href="/profile/notes/create" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Новая заметка
+                </a>
+            </div>
+        </div>
+        
+        <div class="row g-4" id="notesContainer">
+            <div class="col-12 text-center">
+                <p class="text-muted">Загружаем заметки...</p>
+            </div>
+        </div>
+    </main>
+    
+    <footer class="text-center text-muted py-3 small mt-auto">&copy; 2025 Jerkv Notes</footer>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Загружаем список заметок
+        document.addEventListener('DOMContentLoaded', function() {
+            loadNotes();
+            
+            // Добавляем обработчики для кнопок бекапа и восстановления
+            document.getElementById('backupBtn').addEventListener('click', backupNotes);
+            document.getElementById('restoreBtn').addEventListener('click', restoreNotes);
+        });
+        
+        function loadNotes() {
+            fetch('/api/notes/list')
+                .then(response => response.json())
+                .then(noteIds => {
+                    const container = document.getElementById('notesContainer');
+                    if (noteIds.length === 0) {
+                        container.innerHTML = '<div class="col-12 text-center"><p class="text-muted">У вас пока нет заметок</p></div>';
+                    } else {
+                        // Загружаем детали каждой заметки
+                        Promise.all(noteIds.map(id => 
+                            fetch(`/api/notes/get?id=${encodeURIComponent(id)}`)
+                                .then(response => {
+                                    if (!response.ok) {
+                                        throw new Error(`HTTP error! status: ${response.status}`);
+                                    }
+                                    return response.json();
+                                })
+                                .then(note => ({ ...note, id }))
+                                .catch(error => {
+                                    console.error(`Error loading note ${id}:`, error);
+                                    return { id, text: 'Ошибка загрузки заметки', title: 'Ошибка' };
+                                })
+                        ))
+                        .then(notes => {
+                            container.innerHTML = notes.map(note => {
+                                const preview = note.text ? note.text.substring(0, 100) : 'Нет содержимого';
+                                const title = note.title || 'Заметка';
+                                
+                                return `
+                                    <div class="col-md-6 col-lg-4">
+                                        <div class="card fade-in h-100">
+                                            <div class="card-body">
+                                                <h5 class="card-title">${title}</h5>
+                                                <p class="card-text text-muted small">${preview}${note.text && note.text.length > 100 ? '...' : ''}</p>
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <small class="text-muted">ID: ${note.id.substring(0, 8)}</small>
+                                                    <div>
+                                                        <a href="/profile/notes/${note.id}" class="btn btn-outline-primary btn-sm me-2">Читать</a>
+                                                        <button class="btn btn-outline-danger btn-sm" onclick="deleteNote('${note.id}')">Удалить</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('');
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading notes:', error);
+                    document.getElementById('notesContainer').innerHTML = 
+                        '<div class="col-12 text-center"><p class="text-danger">Ошибка загрузки заметок</p></div>';
+                });
+        }
+        
+        // Удаление заметки
+        function deleteNote(noteId) {
+            if (confirm('Вы уверены, что хотите удалить эту заметку?')) {
+                fetch(`/api/notes/delete?id=${noteId}`, {method: 'DELETE'})
+                    .then(response => response.text())
+                    .then(result => {
+                        alert(result);
+                        loadNotes();
+                    })
+                    .catch(error => {
+                        console.error('Ошибка удаления:', error);
+                        alert('Ошибка удаления заметки');
+                    });
+            }
+        }
+        
+        // Функции для бекапа и восстановления
+        function backupNotes() {
+            fetch('/api/notes/backup', {method: 'POST'})
+                .then(response => response.text())
+                .then(result => {
+                    alert(result);
+                })
+                .catch(error => {
+                    console.error('Ошибка бекапа:', error);
+                    alert('Ошибка создания бекапа');
+                });
+        }
+        
+        function restoreNotes() {
+            if (confirm('Восстановление заменит все текущие заметки. Продолжить?')) {
+                fetch('/api/notes/restore', {method: 'POST'})
+                    .then(response => response.text())
+                    .then(result => {
+                        alert(result);
+                        loadNotes(); // Перезагружаем список заметок
+                    })
+                    .catch(error => {
+                        console.error('Ошибка восстановления:', error);
+                        alert('Ошибка восстановления бекапа');
+                    });
+            }
+        }
+    </script>
+</body>
+</html>

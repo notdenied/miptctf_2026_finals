@@ -1,0 +1,15 @@
+[Interface]
+Address =  {{ server_addr }}
+ListenPort = 51820
+PrivateKey = {{ wg_private_key.stdout }}
+
+
+PostUp   = iptables -C FORWARD -i {{ wg_interface }} -o {{ lan }} -j ACCEPT 2>/dev/null || iptables -A FORWARD -i {{ wg_interface }} -o {{ lan }} -j ACCEPT
+PostUp   = iptables -C FORWARD -i {{ lan }} -o {{ wg_interface }} -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || iptables -A FORWARD -i {{ lan }} -o {{ wg_interface }} -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+PostUp   = iptables -t nat -C POSTROUTING -s 10.80.0.0/14 -d 10.10.10.0/24 -o {{ lan }} -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s 10.80.0.0/14 -d 10.10.10.0/24 -o {{ lan }} -j MASQUERADE
+PostDown = iptables -t nat -D POSTROUTING -s 10.80.0.0/14 -d 10.10.10.0/24 -o {{ lan }} -j MASQUERADE 2>/dev/null || true
+
+
+PostUp   = iptables -t nat -C POSTROUTING -o {{ wg_interface }} -d 10.80.{{ team_id }}.0/24 ! -s 10.80.0.0/14 -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o {{ wg_interface }} -d 10.80.{{ team_id }}.0/24 ! -s 10.80.0.0/14 -j MASQUERADE
+PostDown = iptables -t nat -D POSTROUTING -o {{ wg_interface }} -d 10.80.{{ team_id }}.0/24 ! -s 10.80.0.0/14 -j MASQUERADE 2>/dev/null || true

@@ -1,0 +1,7 @@
+services:
+  manka:
+    build: .
+    container_name: manka
+    ports:
+      - 7191:7191
+    

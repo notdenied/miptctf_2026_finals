@@ -1,0 +1,204 @@
+---
+
+  - name: Derive team_id from current host
+    set_fact:
+      team_id: "{{ (inventory_hostname | regex_search('\\d+$')) | int }}"
+
+  - name: Set hostname
+    ansible.builtin.hostname:
+      name: vuln-core-{{team_id}}
+
+  - name: Generate WireGuard private key
+    command: wg genkey
+    register: wg_private_key
+
+  - name: Save private key to file
+    copy:
+      content: "{{ wg_private_key.stdout }}"
+      dest: /etc/wireguard/private.key
+      mode: '0600'
+
+  - name: Generate WireGuard public key from private key
+    shell: echo "{{ wg_private_key.stdout }}" | wg pubkey
+    register: wg_public_key
+
+  - name: Save public key to file
+    copy:
+      content: "{{ wg_public_key.stdout }}"
+      dest: /etc/wireguard/public.key
+      mode: '0644'
+
+  - name: Create client base dir
+    file:
+      path: "{{client_base_dir }}"
+      state: directory
+      mode: '0755'
+
+  - name: Create server parts base dir
+    file:
+      path: "{{ server_parts_dir }}"
+      state: directory
+      mode: '0755'
+
+  - name: Create vulnbox client dir
+    file:
+      path: "{{ client_base_dir }}/team-{{ team_id }}"
+      state: directory
+      mode: '0755'
+
+
+
+  - name: Generate vulnbox private keys 
+    shell: "wg genkey > {{ client_base_dir }}/team-{{ team_id }}/vulnbox.private.key"
+    args:
+      creates: "{{ client_base_dir }}/team-{{ team_id }}/vulnbox.private.key"
+
+    
+
+  - name: Generate vulnbox public keys
+    shell: "cat {{ client_base_dir }}/team-{{ team_id }}/vulnbox.private.key | wg pubkey > {{ client_base_dir }}/team-{{ team_id }}/vulnbox.public.key"
+
+    
+
+  - name: Read vulnbox public keys slurp
+    ansible.builtin.slurp:
+      src: "{{ client_base_dir }}/team-{{ team_id }}/vulnbox.public.key"
+    register: vulnbox_pub_slurp
+
+
+  - name: Create peer fragments for server
+    copy:
+      dest: "{{ server_parts_dir }}/10-peer-team-{{ team_id }}-vulnbox.conf"
+      mode: '0644'
+      content: |
+        [Peer]
+        # team {{ team_id }}
+        PublicKey = {{ (vulnbox_pub_slurp.content | b64decode) | trim }}
+        AllowedIPs = 10.80.{{ team_id }}.2/32
+        PersistentKeepalive = {{ keepalive_seconds }}
+
+
+
+  - name: Render server conf header
+    template:
+      src: "templates/wg0.conf.j2"
+      dest: "{{ server_parts_dir }}/00-header.conf"
+      mode: '0644'
+    vars:
+      server_addr: "10.80.{{team_id}}.1/24"
+      jury_addr: "{{hostvars['jury'].ansible_host}}"
+
+
+  - name: Assemble full server config wg0.conf
+    assemble:
+      src: "{{ server_parts_dir }}"
+      dest: "{{ wg_dir }}/wg0.conf"
+      mode: '0644'
+      regexp: '.*\.conf$'
+    #notify: Restart WireGuard
+
+
+
+
+  - name: Ensure local output dir exists (controller)
+    file:
+      path: "./vpn-configs/vuln"
+      state: directory
+      mode: '0755'
+    delegate_to: localhost
+    become: false
+
+  - name: Ensure per-team local dirs exist (controller)
+    file:
+      path: "./vpn-configs/vuln/team-{{ team_id }}"
+      state: directory
+      mode: '0755'
+    delegate_to: localhost
+    become: false
+
+  - name: Read each player private key (slurp)
+    slurp:
+      src: "{{ client_base_dir }}/team-{{ team_id }}/vulnbox.private.key"
+    register: vulnboxs_priv_slurp
+
+
+  - name: Render client configs to local filesystem (controller)
+    template:
+      src: "templates/vulnbox.conf.j2"
+      dest: "./vpn-configs/vuln/team-{{ team_id }}/vuln.conf"
+      mode: '0644'
+    vars:
+      client_private_key: "{{ (vulnboxs_priv_slurp.content | b64decode) | trim }}"
+      client_address_cidr: "10.80.{{ team_id }}.2/32"
+      server_public_key: "{{ wg_public_key.stdout | trim }}"
+      server_endpoint: "{{ hostvars['vulnbox_core_'~team_id].ansible_host }}:51820"
+      client_allowed_ips: "10.80.0.0/14, 10.10.10.0/24, 10.60.0.0/14"
+    delegate_to: localhost
+    become: false
+
+
+
+  # Enable IP forwarding by adding to /etc/sysctl.conf
+  - name: Enable IP forwarding by adding to /etc/sysctl.conf
+    shell: echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf
+    become: true
+
+  # Reload sysctl to apply the changes
+  - name: Reload sysctl to apply the changes
+    command: sysctl -p
+    become: true
+
+
+  - name: Copy the fetched file from control node to dest host
+    ansible.builtin.copy:
+      src: ./vpn-configs/jury/team-{{team_id}}/vulnbox_core.conf
+      dest: /etc/wireguard/{{lan}}.conf
+      mode: '0644'
+
+  - name: Enable and start wg-quick@{{lan}} (auto-start at boot)
+    systemd:
+      name: wg-quick@{{lan}}
+      enabled: yes
+      state: started
+    become: true
+
+  # - name: Wait a couple seconds for interface to appear
+  #   pause:
+  #     seconds: 2
+
+  # - name: Check WireGuard interface is up (wg show)
+  #   command: wg show {{ lan }}
+  #   register: wg_player_status
+  #   ignore_errors: true
+  #   become: true
+
+    
+  - name: check ping jury serv
+    command: ping -c 3 10.10.10.1
+
+  - name: Enable WireGuard on boot
+    systemd:
+      name: wg-quick@wg0
+      enabled: yes
+
+  - name: Start WireGuard service
+    systemd:
+      name: wg-quick@wg0
+      state: started
+
+
+  - name: Check if WireGuard interface is already up
+    shell: ip link show wg0
+    register: wg0_interface_check
+    ignore_errors: true
+    become: true
+
+  - name: Bring up WireGuard interface if it's not already up
+    command: wg-quick up wg0
+    when: wg0_interface_check.rc != 0
+    become: true
+
+  - name: Restart WireGuard service
+    ansible.builtin.systemd:
+      name: wg-quick@wg0
+      state: restarted

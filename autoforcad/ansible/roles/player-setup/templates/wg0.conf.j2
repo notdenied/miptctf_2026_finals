@@ -1,0 +1,14 @@
+[Interface]
+Address =  {{ server_addr }}
+ListenPort = 51820
+PrivateKey = {{ wg_private_key.stdout }}
+
+
+PostUp   = iptables -C FORWARD -i {{ wg_interface }} -o {{ lan }} -j ACCEPT 2>/dev/null || iptables -A FORWARD -i {{ wg_interface }} -o {{ lan }} -j ACCEPT
+PostUp   = iptables -C FORWARD -i {{ lan }} -o {{ wg_interface }} -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || iptables -A FORWARD -i {{ lan }} -o {{ wg_interface }} -m state --state RELATED,ESTABLISHED -j ACCEPT
+
+PostUp   = iptables -t nat -C POSTROUTING -s 10.60.0.0/14 -o {{ lan }} -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -s 10.60.0.0/14 -o {{ lan }} -j MASQUERADE
+
+PostDown = iptables -D FORWARD -i {{ wg_interface }} -o {{ lan }} -j ACCEPT 2>/dev/null || true
+PostDown = iptables -D FORWARD -i {{ lan }} -o {{ wg_interface }} -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+PostDown = iptables -t nat -D POSTROUTING -s 10.60.0.0/14 -o {{ lan }} -j MASQUERADE 2>/dev/null || true

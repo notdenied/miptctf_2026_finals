@@ -1,0 +1,8 @@
+[Interface]
+PrivateKey = {{ forcad_private_key.stdout }}
+Address = 10.10.10.10/32
+
+[Peer]
+PublicKey = {{ wg_public_key.stdout }}
+AllowedIPs = 10.10.10.0/24
+Endpoint = {{ hostvars['jury'].ansible_host }}:51820

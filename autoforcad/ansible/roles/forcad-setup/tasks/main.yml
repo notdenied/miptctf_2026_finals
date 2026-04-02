@@ -1,0 +1,79 @@
+---
+
+  - name: Set hostname
+    become: true
+    ansible.builtin.hostname:
+      name: forcad
+
+  - name: Deliver vpn configs
+    become: true
+    copy:
+      src: "{{ juryvpnpath }}"
+      dest: "/etc/wireguard/"
+  
+  - name: Enable WireGuard on boot
+    become: true
+    systemd:
+      name: wg-quick@forcad
+      enabled: yes
+
+  - name: Start WireGuard service
+    become: true
+    systemd:
+      name: wg-quick@forcad
+      state: started
+
+  - name: Deliver ForcAD
+    copy:
+      src: ./ForcAD_v1.5.0-rc-1.zip
+      dest: /home/ubuntu/
+
+  - name: Install unzip
+    become: true
+    ansible.builtin.apt:
+      name: unzip
+
+  - name: unzip ForcAD
+    shell: unzip ~/ForcAD_v1.5.0-rc-1.zip
+
+
+  - name: Load teams list
+    ansible.builtin.include_vars:
+      file: "{{ teams_file }}"
+      name: teams_vars
+
+  - name: Render forcad config
+    ansible.builtin.template:
+      src: templates/config.yml.j2
+      dest: "/home/ubuntu/ForcAD_v1.5.0-rc-1/config.yml"
+      mode: "0644"
+    vars:
+      teams_input: "{{ teams_vars.teams }}"
+
+
+  - name: Deliver checkers
+    copy:
+      src: ./checkers
+      dest: /home/ubuntu/ForcAD_v1.5.0-rc-1/
+  
+  - name: Chmod on checkers
+    shell: chmod -R o+rx ~/ForcAD_v1.5.0-rc-1/checkers/
+
+  - name: pip3 install requirements.txt
+    ansible.builtin.command:
+      cmd: "pip3 install -r {{ home }}ForcAD_v1.5.0-rc-1/cli/requirements.txt"
+  
+  - name: ForcAD setup
+    ansible.builtin.command:
+      cmd: "python3 {{ home }}ForcAD_v1.5.0-rc-1/control.py setup"
+
+  - name: Coffee break
+    ansible.builtin.pause:
+      minutes: 1
+  
+  - name: ForcAD build
+    shell: python3 {{ home }}ForcAD_v1.5.0-rc-1/control.py build
+    
+  - name: pull 3rd party images
+    community.docker.docker_compose_v2_pull:
+      project_src: "{{ home }}ForcAD_v1.5.0-rc-1"

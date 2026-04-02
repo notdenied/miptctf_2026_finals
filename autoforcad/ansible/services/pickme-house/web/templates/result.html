@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>💖 pickme house 💖</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body class="girly-page">
+    <div class="container">
+      <div class="girly-card">
+        <div class="girly-header">
+          <img src="/static/hellososity.png" alt="Hello Kitty" class="girly-header-image" />
+          <div class="girly-header-content">
+            <div class="girly-title">pickme house</div>
+            <div class="girly-subtitle">✨ Результат операции ✨</div>
+          </div>
+          <div style="margin-left:auto;text-align:right">
+            <div style="margin-top:6px">
+              <a class="btn ghost girly-ghost" href="/">🏠 Главная 🏠</a>
+              <a class="btn ghost girly-ghost" href="/logout" style="margin-left:8px">🐾 Выйти 🐾</a>
+            </div>
+          </div>
+        </div>
+
+        <div id="result-panel" style="margin-top:12px" class="result-box panel-appear">
+          {% if action == 'encrypt' %}
+            <div><strong class="muted">💝 Операция:</strong> засекречивание (уровень секретности {{ level }})</div>
+            <div style="margin-top:8px"><strong class="muted">💕 Номерок записи:</strong> <span class="record-id">{{ rec_id }}</span></div>
+            <hr style="border:none;border-top:1px solid rgba(255,182,193,0.3);margin:10px 0" />
+            {% if level == 3 %}
+              <div><strong>🔐 Шифротекстик:</strong> {{ ct }}</div>
+              <div><strong>🍰 n:</strong> {{ n }}</div>
+              <div><strong>🎀 e:</strong> {{ e }}</div>
+              <div><strong>🔑 d:</strong> {{ d }}</div>
+            {% elif level == 2 %}
+              <div><strong>🔐 Шифротекстик:</strong> {{ ct }}</div>
+              <div><strong>🔑 Ключик:</strong> {{ key }}</div>
+              <div><strong>🎲 Nonce:</strong> {{ nonce }}</div>
+            {% elif level == 1 %}
+              <div><strong>🔐 Шифротекстик:</strong> {{ ct }}</div>
+              <div><strong>🎫 Токен:</strong> {{ token }}</div>
+              <div><strong>🔑 Ключик:</strong> {{ key }}</div>
+            {% endif %}
+
+          {% elif action == 'decrypt' %}
+            <div><strong class="muted">💝 Операция:</strong> рассекречивание (уровень секретности {{ level }})</div>
+            <hr style="border:none;border-top:1px solid rgba(255,182,193,0.3);margin:10px 0" />
+            <pre>{{ m }}</pre>
+
+          {% elif action == 'lookup' %}
+            <div><strong class="muted">💝 Операция:</strong> поиск в бдешечке (уровень секретности {{ level }})</div>
+            <hr style="border:none;border-top:1px solid rgba(255,182,193,0.3);margin:10px 0" />
+            {% if row %}
+              <div class="field-row"><div class="field-label">💕 Номерок записи</div><div class="field-value">{{ row[0] }}</div></div>
+              <div class="field-row"><div class="field-label">⏰ Времечко (utc)</div><div class="field-value">{{ row[1] }}</div></div>
+              {% if level == 1 %}
+                <div class="field-row"><div class="field-label">🔐 Шифротекстик</div><div class="field-value">{{ row[2] }}</div></div>
+                <div class="field-row"><div class="field-label">🎫 Токен</div><div class="field-value">{{ row[3] }}</div></div>
+              {% elif level == 2 %}
+                <div class="field-row"><div class="field-label">🔐 Шифротекстик</div><div class="field-value">{{ row[2] }}</div></div>
+                <div class="field-row"><div class="field-label">🎲 Nonce</div><div class="field-value">{{ row[3] }}</div></div>
+              {% elif level == 3 %}
+                <div class="field-row"><div class="field-label">🔐 Шифротекстик</div><div class="field-value">{{ row[2] }}</div></div>
+                <div class="field-row"><div class="field-label">🍰 n </div><div class="field-value">{{ row[3] }}</div></div>
+                <div class="field-row"><div class="field-label">🎀 e </div><div class="field-value">{{ row[4] }}</div></div>
+              {% endif %}
+            {% else %}
+              <div class="muted">❌ Нет такой записи :((</div>
+            {% endif %}
+
+          {% else %}
+            <div class="muted">{{ m }}</div>
+          {% endif %}
+        </div>
+
+        <div style="margin-top:24px"><a href="/" class="btn ghost girly-ghost">💋 Назад</a></div>
+      </div>
+    </div>
+    
+    <div class="girly-decorations">
+      <div class="floating-heart">💖</div>
+      <div class="floating-cat">🍓</div>
+      <div class="floating-cake">🍰</div>
+      <div class="floating-star">✨</div>
+      <div class="floating-heart2">💕</div>
+      <div class="floating-bow">🎀</div>
+      <div class="floating-unicorn">🦄</div>
+      <div class="floating-bear">🧸</div>
+    </div>
+
+    <script src="/static/app.js"></script>
+    <script>
+      (function(){
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initSparkles);
+        } else {
+          initSparkles();
+        }
+        
+        function initSparkles() {
+          if (!document.body) return;
+          
+          const emojis = ['💖', '💕', '💝', '✨', '🌸', '🎀', '🐽', '🍒', '🧸', '💗', '💞', '💘', '🍓'];
+          const sparklesContainer = document.createElement('div');
+          sparklesContainer.className = 'girly-sparkles';
+          document.body.appendChild(sparklesContainer);
+
+          let sparkleCount = 0;
+          const maxSparkles = 15;
+          
+          function createSparkle() {
+            if (sparkleCount >= maxSparkles) return;
+            
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle-item';
+            sparkle.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            sparkle.style.left = Math.random() * 100 + '%';
+            sparkle.style.animationDelay = Math.random() * 2 + 's';
+            sparkle.style.animationDuration = (Math.random() * 2 + 3) + 's';
+            sparklesContainer.appendChild(sparkle);
+            sparkleCount++;
+            
+            setTimeout(() => {
+              if (sparkle.parentNode) {
+                sparkle.remove();
+                sparkleCount--;
+              }
+            }, 5000);
+          }
+          setInterval(createSparkle, 800);
+        }
+      })();
+    </script>
+  </body>
+</html>

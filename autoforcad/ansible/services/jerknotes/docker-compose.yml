@@ -1,0 +1,36 @@
+services:
+  app:
+    build: ./app
+    ports:
+      - "31338:1338"
+    environment:
+      ADMIN_PASSWORD: "postgres"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mail:
+    environment:
+      - DB_PASS=postgres
+      - PYTHONUNBUFFERED=1
+    build: ./mail
+    ports:
+      - "31337:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started      

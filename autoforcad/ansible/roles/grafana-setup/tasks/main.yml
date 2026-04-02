@@ -1,0 +1,170 @@
+---
+
+- name: Create grafana directories
+  become: true
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/grafana
+    - /var/lib/grafana
+    - /var/log/grafana
+    - /etc/grafana/provisioning/datasources
+    - /etc/grafana/provisioning/dashboards
+    - /etc/grafana/dashboards
+
+- name: Set correct ownership for Grafana data directories
+  become: true
+  file:
+    path: "{{ item }}"
+    owner: "472"
+    group: "472"
+    mode: '0775'
+    recurse: yes
+  loop:
+    - /var/lib/grafana
+    - /var/log/grafana
+
+- name: Configure Grafana
+  become: true
+  template:
+    src: grafana.ini.j2
+    dest: /etc/grafana/grafana.ini
+    mode: '0644'
+
+- name: Configure Prometheus datasource
+  become: true
+  copy:
+    dest: /etc/grafana/provisioning/datasources/prometheus.yml
+    mode: '0644'
+    content: |
+      apiVersion: 1
+
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          url: "{{ prometheus_url | default('http://localhost:9090') }}"
+          isDefault: true
+          editable: true
+
+- name: Configure dashboard provisioning
+  become: true
+  copy:
+    dest: /etc/grafana/provisioning/dashboards/default.yml
+    mode: '0644'
+    content: |
+      apiVersion: 1
+
+      providers:
+        - name: 'Default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          updateIntervalSeconds: 10
+          allowUiUpdates: true
+          options:
+            path: /etc/grafana/dashboards
+            foldersFromFilesStructure: true
+
+- name: Install jq for JSON processing
+  become: true
+  apt:
+    name: jq
+    state: present
+    update_cache: yes
+
+- name: Download Node Exporter Full dashboard
+  become: true
+  get_url:
+    url: "https://grafana.com/api/dashboards/1860/revisions/27/download"
+    dest: /tmp/node-exporter-dashboard.json
+    mode: '0644'
+    timeout: 60
+  register: node_exporter_dashboard_download_result
+  retries: 10
+  delay: 15
+  until: node_exporter_dashboard_download_result.failed == false
+  ignore_errors: false
+
+- name: Process Node Exporter dashboard JSON
+  become: true
+  shell: |
+    cat /tmp/node-exporter-dashboard.json | jq 'del(.id) | .uid = "node-exporter-full" | .title = "Node Exporter Full"' > /etc/grafana/dashboards/node-exporter-full.json
+  args:
+    creates: /etc/grafana/dashboards/node-exporter-full.json
+
+- name: Download Prometheus Stats dashboard
+  become: true
+  get_url:
+    url: "https://grafana.com/api/dashboards/2/revisions/2/download"
+    dest: /tmp/prometheus-stats-dashboard.json
+    mode: '0644'
+    timeout: 60
+  register: prometheus_stats_dashboard_download_result
+  retries: 10
+  delay: 15
+  until: prometheus_stats_dashboard_download_result.failed == false
+  ignore_errors: false
+
+- name: Process Prometheus Stats dashboard JSON
+  become: true
+  shell: |
+    cat /tmp/prometheus-stats-dashboard.json | jq 'del(.id) | .uid = "prometheus-stats" | .title = "Prometheus Stats"' > /etc/grafana/dashboards/prometheus-stats.json
+  args:
+    creates: /etc/grafana/dashboards/prometheus-stats.json
+
+- name: Cleanup temporary dashboard files
+  become: true
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/node-exporter-dashboard.json
+    - /tmp/prometheus-stats-dashboard.json
+
+- name: Ensure docker-compose directory exists
+  become: true
+  file:
+    path: /opt/grafana
+    state: directory
+    mode: '0755'
+
+- name: Create docker-compose file for Grafana
+  become: true
+  copy:
+    dest: /opt/grafana/docker-compose.yml
+    mode: '0644'
+    content: |
+      services:
+        grafana:
+          image: grafana/grafana:latest
+          container_name: grafana
+          restart: unless-stopped
+          network_mode: host
+          environment:
+            - GF_PATHS_CONFIG=/etc/grafana/grafana.ini
+            - GF_PATHS_DATA=/var/lib/grafana
+            - GF_PATHS_LOGS=/var/log/grafana
+            - GF_SECURITY_ADMIN_USER={{ grafana_admin_user | default('admin') }}
+            - GF_SECURITY_ADMIN_PASSWORD={{ grafana_admin_password | default('admin') }}
+            - GF_USERS_ALLOW_SIGN_UP=false
+            - GF_SERVER_PROTOCOL=http
+            - GF_SERVER_HTTP_ADDR=0.0.0.0
+            - GF_SERVER_HTTP_PORT=3000
+          volumes:
+            - /etc/grafana/grafana.ini:/etc/grafana/grafana.ini:ro
+            - /var/lib/grafana:/var/lib/grafana
+            - /var/log/grafana:/var/log/grafana
+            - /etc/grafana/provisioning:/etc/grafana/provisioning:ro
+            - /etc/grafana/dashboards:/etc/grafana/dashboards:ro
+          user: "472:472"
+
+- name: Start Grafana with Docker Compose
+  become: true
+  shell: |
+    cd /opt/grafana
+    docker compose up -d
+

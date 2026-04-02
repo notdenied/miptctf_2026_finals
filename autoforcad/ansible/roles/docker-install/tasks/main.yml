@@ -1,0 +1,94 @@
+---
+  - name: Stop and disable unattended-upgrades service
+    become: true
+    systemd:
+      name: unattended-upgrades
+      state: stopped
+      enabled: no
+    ignore_errors: true
+
+  - name: Kill unattended-upgrades process if running
+    become: true
+    shell: |
+      pkill -9 unattended-upgr || true
+      sleep 2
+    ignore_errors: true
+
+  - name: Wait for apt locks to be released before Docker installation
+    become: true
+    shell: |
+      timeout=300
+      elapsed=0
+      while [ $elapsed -lt $timeout ]; do
+        # Check if any apt locks are held
+        if ! lsof /var/lib/dpkg/lock-frontend 2>/dev/null && \
+           ! fuser /var/lib/dpkg/lock-frontend 2>/dev/null && \
+           ! lsof /var/lib/dpkg/lock 2>/dev/null && \
+           ! lsof /var/lib/apt/lists/lock 2>/dev/null && \
+           ! fuser /var/lib/apt/lists/lock 2>/dev/null && \
+           ! lsof /var/cache/apt/archives/lock 2>/dev/null && \
+           ! fuser /var/cache/apt/archives/lock 2>/dev/null; then
+          exit 0
+        fi
+        # If unattended-upgrades is still running, kill it
+        if pgrep -f unattended-upgr > /dev/null; then
+          pkill -9 -f unattended-upgr || true
+          sleep 2
+        fi
+        sleep 5
+        elapsed=$((elapsed + 5))
+      done
+      # Last resort: kill any process holding the locks
+      lsof /var/lib/dpkg/lock-frontend 2>/dev/null | awk 'NR>1 {print $2}' | xargs -r kill -9 2>/dev/null || true
+      lsof /var/lib/dpkg/lock 2>/dev/null | awk 'NR>1 {print $2}' | xargs -r kill -9 2>/dev/null || true
+      lsof /var/lib/apt/lists/lock 2>/dev/null | awk 'NR>1 {print $2}' | xargs -r kill -9 2>/dev/null || true
+      lsof /var/cache/apt/archives/lock 2>/dev/null | awk 'NR>1 {print $2}' | xargs -r kill -9 2>/dev/null || true
+      sleep 2
+      # Final check
+      if ! lsof /var/lib/dpkg/lock-frontend 2>/dev/null && \
+         ! fuser /var/lib/dpkg/lock-frontend 2>/dev/null && \
+         ! lsof /var/lib/dpkg/lock 2>/dev/null && \
+         ! lsof /var/lib/apt/lists/lock 2>/dev/null && \
+         ! fuser /var/lib/apt/lists/lock 2>/dev/null && \
+         ! lsof /var/cache/apt/archives/lock 2>/dev/null && \
+         ! fuser /var/cache/apt/archives/lock 2>/dev/null; then
+        exit 0
+      fi
+      exit 1
+    register: wait_apt_lock_result
+    retries: 3
+    delay: 10
+    until: wait_apt_lock_result.rc == 0
+    ignore_errors: true
+
+  - name: Delete unattended-upgrades package
+    become: true
+    apt:
+      name: unattended-upgrades
+      state: absent
+    register: remove_unattended_result
+    retries: 3
+    delay: 10
+    until: remove_unattended_result.failed == false
+    ignore_errors: true
+
+  - name: Get docker
+    become: true
+    shell: curl -fsSL https://get.docker.com -o {{ home }}get-docker.sh
+
+  - name: Install docker
+    become: true
+    shell: sh {{ home }}get-docker.sh
+    register: docker_install_result
+    retries: 3
+    delay: 15
+    until: docker_install_result.rc == 0
+    ignore_errors: true
+
+  - name: Add docker group
+    become: true
+    shell: "usermod -aG docker {{ ansible_user }}"
+
+  - name: Remove installer
+    become: true
+    shell: "rm {{ home }}get-docker.sh"

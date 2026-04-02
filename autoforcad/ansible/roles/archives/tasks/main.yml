@@ -1,0 +1,18 @@
+- name: Load teams list
+  ansible.builtin.include_vars:
+    file: "{{ teams_file }}"
+    name: teams_vars
+
+- name: Ensure release directory exists
+  ansible.builtin.file:
+    path: "{{ release_root }}"
+    state: directory
+    mode: "0755"
+
+- name: Process each team
+  ansible.builtin.include_tasks:
+    file: process_team.yml
+  loop: "{{ teams_vars.teams }}"
+  loop_control:
+    loop_var: team_item
+    label: "team={{ team_item.name }} (id={{ team_item.id }})"

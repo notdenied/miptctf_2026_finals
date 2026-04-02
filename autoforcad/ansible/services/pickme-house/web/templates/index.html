@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>💖 pickme house 💖</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body class="girly-page">
+    <div class="container">
+      <div class="girly-card">
+        <div class="girly-header">
+          <img src="/static/hellososity.png" alt="Hello Kitty" class="girly-header-image" />
+          <div class="girly-header-content">
+            <div class="girly-title">pickme house</div>
+            <div class="girly-subtitle">✨ приветусик, {{ agent }}! ✨</div>
+          </div>
+          <div style="margin-left:auto;text-align:right">
+            <div style="margin-top:6px">
+              <a class="btn ghost girly-ghost" href="/profile">💖 Профиль 💖</a>
+              <a class="btn ghost girly-ghost" href="/logout" style="margin-left:8px">🐾 Выйти 🐾</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="notice girly-notice">🌸 Малышечка, будь осторожна!! Эти гнусные пакостники попытаются украсть твои секретики: не показывай никому свои секретные ключики! </div>
+
+        <div class="form-grid">
+          <div class="panel girly-panel">
+            <form method="post" action="/process" class="girly-form">
+              <label>🍓 Выбери действие</label>
+              <select name="action" id="action-select">
+                <option value="encrypt">🔒 засекретить</option>
+                <option value="decrypt">🔓 рассекретить</option>
+              </select>
+
+              <label>🤫 Уровень секретности, красотулька</label>
+              <select name="level" id="level-select">
+                <option value="1">тайна — SEA </option>
+                <option value="2">секретик — AES </option>
+                <option value="3">сплетня — RSA </option>
+              </select>
+
+              <div id="plain-group">
+                <label for="plaintext">💌 Что ты хочешь засекретить?</label>
+                <textarea name="plaintext" id="plaintext" placeholder="натыкай текстик..." class="girly-textarea"></textarea>
+              </div>
+
+              <div id="ct-group">
+                <label for="ct_hex">🔐 Что ты хочешь рассекретить?</label>
+                <input name="ct_hex" id="ct_hex" placeholder="hex..." />
+              </div>
+
+              <div id="key-group" class="hidden">
+                <label for="key_hex">🔑 Секретный ключик </label>
+                <input name="key_hex" id="key_hex" placeholder="hex..." />
+              </div>
+
+              <div id="nonce-group" class="hidden">
+                <label for="nonce_hex">🎲 Nonce </label>
+                <input name="nonce_hex" id="nonce_hex" placeholder="hex..." />
+              </div>
+
+              <div id="n-group" class="hidden">
+                <label for="n">🐽 n </label>
+                <input name="n" id="n" placeholder="hex..." />
+              </div>
+
+              <div id="d-group" class="hidden">
+                <label for="d">💕 d </label>
+                <input name="d" id="d" placeholder="hex..." />
+              </div>
+
+              <div id="keyliteral-group" class="hidden">
+                <label for="key_literal">🔑 Секретный ключик</label>
+                <input name="key_literal" id="key_literal" placeholder="(123, 456)" />
+              </div>
+
+              <div class="actions">
+                <button class="btn primary-glow girly-btn" type="submit">✨ Выполнить ✨</button>
+                <button class="btn ghost girly-ghost" type="reset">😓 Сбросить 😔</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel girly-panel">
+            <h3 class="girly-subtitle">🔍 Поиск в бдешечке, кисуня</h3>
+            <p class="muted"> Найди записи по уровню и номеру записи, girl</p>
+            <form method="post" action="/lookup" class="lookup girly-form">
+              <label>🌸 Уровень секретности</label>
+              <select name="level">
+                <option value="1">💖 тайна</option>
+                <option value="2">💕 секретик</option>
+                <option value="3">🐽 сплетня</option>
+              </select>
+
+              <label>😜 Номерок записи</label>
+              <input name="rec_id" placeholder="натыкай номерочек..." />
+
+              <div class="actions">
+                <button class="btn primary-glow girly-btn" type="submit">🔍 Найти 🔍</button>
+              </div>
+            </form>
+
+            <div style="margin-top:16px" class="muted">💎 Дорогая, мы с тобой как бриллианты - ослепляем, когда вместе сияем. Не давай никому нас поцарапать.</div>
+          </div>
+        </div>
+
+        <div class="girly-footer">
+          💖 верь в себя, girl! 🌸 | 💖 малышка, мы должны держаться вместе!! подпишись тгк: пту🫶
+        </div>
+      </div>
+    </div>
+    
+    <div class="girly-decorations">
+      <div class="floating-heart">💖</div>
+      <div class="floating-cat">🍓</div>
+      <div class="floating-cake">🍰</div>
+      <div class="floating-star">✨</div>
+      <div class="floating-heart2">💕</div>
+      <div class="floating-bow">🎀</div>
+      <div class="floating-unicorn">🦄</div>
+      <div class="floating-bear">🧸</div>
+    </div>
+
+    <script src="/static/app.js"></script>
+    <script>
+      (function(){
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initSparkles);
+        } else {
+          initSparkles();
+        }
+        
+        function initSparkles() {
+          if (!document.body) return;
+          
+          const emojis = ['💖', '💕', '💝', '✨', '🌸', '🎀', '🐽', '🍒', '🧸', '💗', '💞', '💘', '🍓'];
+          const sparklesContainer = document.createElement('div');
+          sparklesContainer.className = 'girly-sparkles';
+          document.body.appendChild(sparklesContainer);
+
+          let sparkleCount = 0;
+          const maxSparkles = 15;
+          
+          function createSparkle() {
+            if (sparkleCount >= maxSparkles) return;
+            
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle-item';
+            sparkle.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            sparkle.style.left = Math.random() * 100 + '%';
+            sparkle.style.animationDelay = Math.random() * 2 + 's';
+            sparkle.style.animationDuration = (Math.random() * 2 + 3) + 's';
+            sparklesContainer.appendChild(sparkle);
+            sparkleCount++;
+            
+            setTimeout(() => {
+              if (sparkle.parentNode) {
+                sparkle.remove();
+                sparkleCount--;
+              }
+            }, 5000);
+          }
+          setInterval(createSparkle, 800);
+        }
+      })();
+    </script>
+  </body>
+</html>

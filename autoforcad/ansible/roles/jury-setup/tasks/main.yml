@@ -1,0 +1,290 @@
+---
+  - name: Set hostname
+    ansible.builtin.hostname:
+      name: jury-core
+
+  # Gen keys
+  - name: Generate WireGuard private key
+    command: wg genkey
+    register: wg_private_key
+
+  - name: Save private key to file
+    copy:
+      content: "{{ wg_private_key.stdout }}"
+      dest: /etc/wireguard/private.key
+      mode: '0600'
+
+  - name: Generate WireGuard public key from private key
+    shell: echo "{{ wg_private_key.stdout }}" | wg pubkey
+    register: wg_public_key
+
+  - name: Save public key to file
+    copy:
+      content: "{{ wg_public_key.stdout }}"
+      dest: /etc/wireguard/public.key
+      mode: '0644'
+
+  - name: Create client base dir
+    file:
+      path: "{{client_base_dir }}"
+      state: directory
+      mode: '0755'
+
+  - name: Create server parts base dir
+    file:
+      path: "{{ server_parts_dir }}"
+      state: directory
+      mode: '0755'
+
+  - name: Create per-server client dirs
+    file:
+      path: "{{ client_base_dir }}/team-{{ item }}"
+      state: directory
+      mode: '0755'
+    loop: "{{ range(1,team_count + 1) | list }}"
+
+      # forcad key
+  - name: Generate private key for forcad client
+    shell: wg genkey | tee {{ client_base_dir }}/forcad.private.key
+    register: forcad_private_key
+    become: true
+
+  - name: Generate public key for forcad client
+    shell: cat {{ client_base_dir }}/forcad.private.key | wg pubkey
+    register: forcad_public_key
+    become: true
+
+  - name: Save forcad public key to file
+    copy:
+      content: "{{ forcad_public_key.stdout }}"
+      dest: "{{ client_base_dir }}/forcad.public.key"
+      mode: '0644'
+
+
+  - name: Generate player_core client private keys 
+    shell: "wg genkey > {{ client_base_dir }}/team-{{ item }}/player.private.key"
+    args:
+      creates: "{{ client_base_dir }}/team-{{ item }}/player.private.key"
+    loop: "{{ range(1,team_count + 1) | list}}"
+    loop_control:
+      label: "team={{ item }}"
+
+  - name: Generate vulnbox_core client private keys 
+    shell: "wg genkey > {{ client_base_dir }}/team-{{ item }}/vulnbox.private.key"
+    args:
+      creates: "{{ client_base_dir }}/team-{{ item }}/vulnbox.private.key"
+    loop: "{{ range(1,team_count + 1) | list}}"
+    loop_control:
+      label: "team={{ item }}"
+
+  - name: Generate player_core client public keys
+    shell: "cat {{ client_base_dir }}/team-{{ item }}/player.private.key | wg pubkey > {{ client_base_dir }}/team-{{ item }}/player.public.key"
+    loop: "{{ range(1,team_count + 1) | list}}"
+    loop_control:
+      label: "team={{ item }}"
+
+  - name: Generate vulnbox_core client public keys
+    shell: "cat {{ client_base_dir }}/team-{{ item }}/vulnbox.private.key | wg pubkey > {{ client_base_dir }}/team-{{ item }}/vulnbox.public.key"
+    loop: "{{ range(1,team_count + 1) | list}}"
+    loop_control:
+      label: "team={{ item }}"
+
+  - name: Read player_core client public keys slurp
+    ansible.builtin.slurp:
+      src: "{{ client_base_dir }}/team-{{ item }}/player.public.key"
+    register: players_pub_slurp
+    loop: "{{ range(1,team_count + 1) | list}}"
+    loop_control:
+      label: "team={{ item }}"
+
+  - name: Read vulnbox_core client public keys slurp
+    ansible.builtin.slurp:
+      src: "{{ client_base_dir }}/team-{{ item }}/vulnbox.public.key"
+    register: vulnboxs_pub_slurp
+    loop: "{{ range(1,team_count + 1) | list}}"
+    loop_control:
+      label: "team={{ item }}" 
+
+  - name: Create peer fragments player_core for server
+    vars:
+      player_host: "{{ host_start + (item-1) * (stride_per_team | int) + (role_offsets.player_core | int) }}"
+      player_core_ip:   "{{ vpn_octets }}.{{ player_host }}"
+
+    copy:
+      dest: "{{ server_parts_dir }}/10-peer-team-{{ item }}-player.conf"
+      mode: '0644'
+      content: |
+        [Peer]
+        # team {{ item }} / player core
+        PublicKey = {{ (players_pub_slurp.results[(item-1)].content | b64decode) | trim }}
+        AllowedIPs = {{player_core_ip}}/32
+        PersistentKeepalive = {{ keepalive_seconds }}
+    loop: "{{ range(1, team_count + 1) |  list }}"
+    loop_control:
+      label: "team={{ item }}"
+
+  - name: Create peer fragments player_core for server
+    vars:
+      vulnbox_host: "{{ host_start + (item-1) * (stride_per_team | int) + (role_offsets.vulnbox_core | int) }}"
+      vulnbox_core_ip:   "{{ vpn_octets }}.{{ vulnbox_host }}"
+    copy:
+      dest: "{{ server_parts_dir }}/10-peer-team-{{ item }}-vulnbox.conf"
+      mode: '0644'
+      content: |
+        [Peer]
+        # team {{ item }} / vulnbox core
+        PublicKey = {{ (vulnboxs_pub_slurp.results[(item-1)].content | b64decode) | trim }}
+        AllowedIPs = {{ vulnbox_core_ip }}/32, 10.80.{{ item }}.0/24
+        PersistentKeepalive = {{ keepalive_seconds }}
+    loop: "{{ range(1, team_count + 1) |  list }}"
+    loop_control:
+      label: "team={{ item }}"
+
+  - name: Render forcad peer
+    copy:
+      dest: "{{ server_parts_dir }}/01-forcad.conf"
+      mode: '0644'
+      content: |
+        [Peer]
+        # Forcad
+        PublicKey = {{ forcad_public_key.stdout }}
+        AllowedIPs = 10.10.10.10/32
+        PersistentKeepalive = {{ keepalive_seconds }}
+
+  - name: Render server conf header
+    template:
+      src: "templates/wg0.conf.j2"
+      dest: "{{ server_parts_dir }}/00-header.conf"
+      mode: '0644'
+    vars:
+      server_addr: "10.10.10.1/24"
+      
+
+  - name: Assemble full server config wg0.conf
+    assemble:
+      src: "{{ server_parts_dir }}"
+      dest: "{{ wg_dir }}/wg0.conf"
+      mode: '0644'
+      regexp: '.*\.conf$'
+
+  - name: Ensure local output dir exists (controller)
+    file:
+      path: "./vpn-configs/jury"
+      state: directory
+      mode: '0755'
+    delegate_to: localhost
+    become: false
+
+  - name: Ensure per-team local dirs exist (controller)
+    file:
+      path: "./vpn-configs/jury/team-{{ item }}"
+      state: directory
+      mode: '0755'
+    loop: "{{ range(1, team_count + 1) | list }}"
+    delegate_to: localhost
+    become: false
+
+  - name: Read each player_core private key (slurp)
+    slurp:
+      src: "{{ client_base_dir }}/team-{{ item }}/player.private.key"
+    register: players_core_priv_slurp
+    loop: "{{ range(1, team_count + 1) | list }}"
+    loop_control:
+      label: "team={{ item }}"
+
+  - name: Read each vulnbox_core private key (slurp)
+    slurp:
+      src: "{{ client_base_dir }}/team-{{ item }}/vulnbox.private.key"
+    register: vulnboxs_core_priv_slurp
+    loop: "{{ range(1, team_count + 1) | list }}"
+    loop_control:
+      label: "team={{ item }}"
+
+
+  - name: Render client player_core configs to local filesystem (controller)
+    template:
+      src: "templates/client.conf.j2"
+      dest: "./vpn-configs/jury/team-{{ item }}/player_core.conf"
+      mode: '0644'
+    vars:
+      player_host: "{{ host_start + (item-1) * (stride_per_team | int) + (role_offsets.player_core | int) }}"
+      client_private_key: "{{ (players_core_priv_slurp.results[(item-1)].content | b64decode) | trim }}"
+      client_address_cidr: "{{ vpn_octets }}.{{ player_host }}/32"
+      server_public_key: "{{ wg_public_key.stdout | trim }}"
+      server_endpoint: "{{ hostvars['jury'].ansible_host }}:51820"
+      client_allowed_ips: "10.10.10.0/24, 10.80.0.0/14"
+    loop: "{{ range(1, team_count + 1) | list }}"
+    loop_control:
+      label: "team={{ item }}"
+    delegate_to: localhost
+    become: false
+
+  - name: Render client vulnbox_core configs to local filesystem (controller)
+    template:
+      src: "templates/client.conf.j2"
+      dest: "./vpn-configs/jury/team-{{ item }}/vulnbox_core.conf"
+      mode: '0644'
+    vars:
+      vulnbox_host: "{{ host_start + (item-1) * (stride_per_team | int) + (role_offsets.vulnbox_core | int) }}"
+      client_address_cidr: "{{ vpn_octets }}.{{ vulnbox_host }}/32"
+      client_private_key: "{{ (vulnboxs_core_priv_slurp.results[(item-1)].content | b64decode) | trim }}"
+      server_public_key: "{{ wg_public_key.stdout | trim }}"
+      server_endpoint: "{{ hostvars['jury'].ansible_host }}:51820"
+      client_allowed_ips: "10.10.10.0/24, 10.80.0.0/14"
+    loop: "{{ range(1, team_count + 1) | list }}"
+    loop_control:
+      label: "team={{ item }}"
+    delegate_to: localhost
+    become: false
+
+  - name: Render forcad conf to local filesystem
+    template:
+      src: "templates/client.conf.j2"
+      dest: "./vpn-configs/jury/forcad.conf"
+      mode: '0644'
+    vars:
+      client_address_cidr: "10.10.10.10/32"
+      client_private_key: "{{ forcad_private_key.stdout | trim }}"
+      server_public_key: "{{ wg_public_key.stdout | trim }}"
+      server_endpoint: "{{ hostvars['jury'].ansible_host }}:51820"
+      client_allowed_ips: "10.10.10.0/24, 10.80.0.0/14"
+    delegate_to: localhost
+    become: false
+
+
+  - name: Enable WireGuard on boot
+    systemd:
+      name: wg-quick@wg0
+      enabled: yes
+
+  - name: Start WireGuard service
+    systemd:
+      name: wg-quick@wg0
+      state: started
+
+  # Enable IP forwarding by adding to /etc/sysctl.conf
+  - name: Enable IP forwarding by adding to /etc/sysctl.conf
+    shell: echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf
+    become: true
+
+  # Reload sysctl to apply the changes
+  - name: Reload sysctl to apply the changes
+    command: sysctl -p
+    become: true
+
+  - name: Check if WireGuard interface is already up
+    shell: ip link show wg0
+    register: wg0_interface_check
+    ignore_errors: true
+    become: true
+
+  - name: Bring up WireGuard interface if it's not already up
+    command: wg-quick up wg0
+    when: wg0_interface_check.rc != 0
+    become: true
+
+  - name: Restart WireGuard service
+    ansible.builtin.systemd:
+      name: wg-quick@wg0
+      state: restarted
+

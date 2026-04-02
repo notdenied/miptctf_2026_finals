@@ -1,0 +1,46 @@
+[paths]
+data = /var/lib/grafana
+logs = /var/log/grafana
+plugins = /var/lib/grafana/plugins
+provisioning = /etc/grafana/provisioning
+
+[server]
+protocol = http
+http_addr = 0.0.0.0
+http_port = 3000
+domain = localhost
+root_url = %(protocol)s://%(domain)s:%(http_port)s/
+
+[database]
+type = sqlite3
+path = grafana.db
+
+[session]
+provider = file
+
+[analytics]
+reporting_enabled = false
+check_for_updates = false
+
+[security]
+admin_user = admin
+admin_password = {{ grafana_admin_password | default('admin') }}
+
+[users]
+allow_sign_up = false
+
+[log]
+mode = console file
+level = info
+
+[log.console]
+level = info
+
+[log.file]
+level = info
+log_rotate = true
+max_lines = 1000000
+max_size_shift = 28
+daily_rotate = true
+max_days = 7
+

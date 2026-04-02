@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: storage-postgres
+    environment:
+      POSTGRES_DB: storage
+      POSTGRES_USER: storageadmin
+      POSTGRES_PASSWORD: storagepass
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U storageadmin -d storage"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  authproxy:
+    build:
+      context: ./authproxy
+      dockerfile: Dockerfile
+    container_name: storage-authproxy
+    ports:
+      - 8000:8000
+    environment:
+      DATABASE_URL: postgresql://storageadmin:storagepass@postgres:5432/storage
+      S3_SERVICE_URL: http://storageservice:8080
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend
+      - frontend
+    restart: unless-stopped
+
+  storageservice:
+    build:
+      context: ./s3service
+      dockerfile: Dockerfile
+    container_name: storage-service
+    environment:
+      DATABASE_URL: postgresql://storageadmin:storagepass@postgres:5432/storage?sslmode=disable
+      STORAGE_PATH: /data/storage
+      PORT: 8080
+    networks:
+      - backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: storage-frontend
+    environment:
+      NODE_ENV: production
+    networks:
+      - frontend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: storage-nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    ports:
+      - "2323:80"
+    depends_on:
+      - authproxy
+      - frontend
+    networks:
+      - frontend
+    restart: unless-stopped
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true

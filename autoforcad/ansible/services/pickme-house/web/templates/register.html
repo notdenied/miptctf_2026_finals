@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>💖 hi girl! 💖</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body class="girly-page">
+    <div class="container">
+      <div class="girly-card">
+        <div class="girly-header">
+          <img src="/static/hellososity.png" alt="Hello Kitty" class="girly-header-image" />
+          <div class="girly-header-content">
+            <div class="girly-title">pickme house</div>
+            <div class="girly-subtitle">✨ Создай свой аккаунтик, киснуня! ✨</div>
+          </div>
+        </div>
+
+        <div class="panel girly-panel" id="register-panel">
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              <div class="flashbox">
+                {% for category, msg in messages %}
+                  <div class="flash {{ category }} girly-flash">{{ msg }}</div>
+                {% endfor %}
+              </div>
+            {% endif %}
+          {% endwith %}
+
+          <form method="post" action="{{ url_for('register') }}" id="register-form" class="girly-form">
+            <label for="ruser">🐱 Выбери своё имя, малышечка</label>
+            <input id="ruser" name="user" required autocomplete="username" placeholder="твоё уникальное имя" />
+
+            <label for="rpwd">🍰 Создай супер секретный парольчик</label>
+            <input id="rpwd" name="pwd" type="password" required autocomplete="new-password" placeholder="секретик только между нами" />
+
+            <label for="rpwd2">🌸 Подтверди пароль, красотулька</label>
+            <input id="rpwd2" name="pwd2" type="password" required autocomplete="new-password" placeholder="ещё раз для уверенности" />
+
+            <div class="actions">
+              <button class="btn primary-glow girly-btn" type="submit" id="create-btn">💝 Создать аккаунтик 💝</button>
+              <a class="btn ghost girly-ghost" href="{{ url_for('login') }}">🐾 Назад, киснуня 🐾</a>
+            </div>
+          </form>
+        </div>
+
+        <div class="girly-footer">
+          💖 pussy power 🌸 | 🍰 никому не говори свой парольчик 🐱 | 🐾 тгк: пту 🌸
+        </div>
+      </div>
+    </div>
+    
+    <div class="girly-decorations">
+      <div class="floating-heart">💖</div>
+      <div class="floating-cat">🍓</div>
+      <div class="floating-cake">🍰</div>
+      <div class="floating-star">✨</div>
+      <div class="floating-heart2">💕</div>
+      <div class="floating-bow">🎀</div>
+      <div class="floating-unicorn">🦄</div>
+      <div class="floating-bear">🧸</div>
+    </div>
+
+    <script src="/static/register.js"></script>
+    <script>
+      (function(){
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initSparkles);
+        } else {
+          initSparkles();
+        }
+        
+        function initSparkles() {
+          if (!document.body) return;
+          
+          const emojis = ['💖', '💕', '💝', '✨', '🌸', '🎀', '🐽', '🍒', '🧸', '💗', '💞', '💘', '🍓'];
+          const sparklesContainer = document.createElement('div');
+          sparklesContainer.className = 'girly-sparkles';
+          document.body.appendChild(sparklesContainer);
+
+          let sparkleCount = 0;
+          const maxSparkles = 15;
+          
+          function createSparkle() {
+            if (sparkleCount >= maxSparkles) return;
+            
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle-item';
+            sparkle.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            sparkle.style.left = Math.random() * 100 + '%';
+            sparkle.style.animationDelay = Math.random() * 2 + 's';
+            sparkle.style.animationDuration = (Math.random() * 2 + 3) + 's';
+            sparklesContainer.appendChild(sparkle);
+            sparkleCount++;
+            
+            setTimeout(() => {
+              if (sparkle.parentNode) {
+                sparkle.remove();
+                sparkleCount--;
+              }
+            }, 5000);
+          }
+          setInterval(createSparkle, 800);
+        }
+      })();
+    </script>
+  </body>
+</html>

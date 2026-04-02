@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>💖 pickme house 💖</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body class="girly-page">
+    <div class="container">
+      <div class="girly-card">
+        <div class="girly-header">
+          <img src="/static/hellososity.png" alt="Hello Kitty" class="girly-header-image" />
+          <div class="girly-header-content">
+            <div class="girly-title">pickme house</div>
+            <div class="girly-subtitle">✨ профиль милашки {{ agent }} ✨</div>
+          </div>
+          <div style="margin-left:auto;text-align:right">
+            <div style="margin-top:6px">
+              <a class="btn ghost girly-ghost" href="/">🏠 Главная 🏠</a>
+              <a class="btn ghost girly-ghost" href="/logout" style="margin-left:8px">🐾 Выйти 🐾</a>
+            </div>
+          </div>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="flashbox">
+              {% for category, message in messages %}
+                <div class="flash {{ category }} girly-flash">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="form-grid" style="margin-top:18px">
+          <div class="panel girly-panel">
+            <form method="post" action="/profile" class="girly-form">
+              <label for="bio">🌸 Расскажи о себе, котик</label>
+              <textarea name="bio" id="bio" placeholder="стф мальчики нас обижают, нужно держаться вместе, сестра..." rows="6" class="girly-textarea">{{ bio }}</textarea>
+              <div class="actions">
+                <button class="btn primary-glow girly-btn" type="submit">✨ Обновить биографию ✨</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel girly-panel">
+            <h3 class="girly-subtitle" style="margin-top:0">🔐 Твои записи, кисуня</h3>            
+            <div style="margin-bottom:16px">
+              <strong style="color:#ff1493">💖 Тайны:</strong>
+              {% if records.level1 %}
+                <div style="margin-top:8px;font-family:var(--mono);font-size:13px">
+                  {% for rec in records.level1 %}
+                    <div style="padding:4px 0;border-bottom:1px dashed rgba(255,182,193,0.3)">
+                      <span class="record-id" style="color:#ff1493">ID: {{ rec[0] }}</span>
+                      <span class="muted" style="margin-left:8px;color:#ff69b4">({{ rec[1][:19] }})</span>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="muted" style="margin-top:4px;font-style:italic;color:#ff69b4">нет записей</div>
+              {% endif %}
+            </div>
+
+            <div style="margin-bottom:16px">
+              <strong style="color:#ff1493">🍰 Секретики:</strong>
+              {% if records.level2 %}
+                <div style="margin-top:8px;font-family:var(--mono);font-size:13px">
+                  {% for rec in records.level2 %}
+                    <div style="padding:4px 0;border-bottom:1px dashed rgba(255,182,193,0.3)">
+                      <span class="record-id" style="color:#ff1493">ID: {{ rec[0] }}</span>
+                      <span class="muted" style="margin-left:8px;color:#ff69b4">({{ rec[1][:19] }})</span>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="muted" style="margin-top:4px;font-style:italic;color:#ff69b4">нет записей</div>
+              {% endif %}
+            </div>
+
+            <div>
+              <strong style="color:#ff1493">🎀 Сплетни:</strong>
+              {% if records.level3 %}
+                <div style="margin-top:8px;font-family:var(--mono);font-size:13px">
+                  {% for rec in records.level3 %}
+                    <div style="padding:4px 0;border-bottom:1px dashed rgba(255,182,193,0.3)">
+                      <span class="record-id" style="color:#ff1493">ID: {{ rec[0] }}</span>
+                      <span class="muted" style="margin-left:8px;color:#ff69b4">({{ rec[1][:19] }})</span>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="muted" style="margin-top:4px;font-style:italic;color:#ff69b4">нет записей</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="girly-footer">
+          💖 принцесса {{ agent }} 🌸 | 🍰 будь осторожна с данными 🐱 | 🐾 тгк: пту 🌸
+        </div>
+      </div>
+    </div>
+    
+    <div class="girly-decorations">
+      <div class="floating-heart">💖</div>
+      <div class="floating-cat">🍓</div>
+      <div class="floating-cake">🍰</div>
+      <div class="floating-star">✨</div>
+      <div class="floating-heart2">💕</div>
+      <div class="floating-bow">🎀</div>
+      <div class="floating-unicorn">🦄</div>
+      <div class="floating-bear">🧸</div>
+    </div>
+
+    <script src="/static/app.js"></script>
+    <script>
+      (function(){
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initSparkles);
+        } else {
+          initSparkles();
+        }
+        
+        function initSparkles() {
+          if (!document.body) return;
+          
+          const emojis = ['💖', '💕', '💝', '✨', '🌸', '🎀', '🐽', '🍒', '🧸', '💗', '💞', '💘', '🍓'];
+          const sparklesContainer = document.createElement('div');
+          sparklesContainer.className = 'girly-sparkles';
+          document.body.appendChild(sparklesContainer);
+
+          let sparkleCount = 0;
+          const maxSparkles = 15;
+          
+          function createSparkle() {
+            if (sparkleCount >= maxSparkles) return;
+            
+            const sparkle = document.createElement('div');
+            sparkle.className = 'sparkle-item';
+            sparkle.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+            sparkle.style.left = Math.random() * 100 + '%';
+            sparkle.style.animationDelay = Math.random() * 2 + 's';
+            sparkle.style.animationDuration = (Math.random() * 2 + 3) + 's';
+            sparklesContainer.appendChild(sparkle);
+            sparkleCount++;
+            
+            setTimeout(() => {
+              if (sparkle.parentNode) {
+                sparkle.remove();
+                sparkleCount--;
+              }
+            }, 5000);
+          }
+          setInterval(createSparkle, 800);
+        }
+      })();
+    </script>
+  </body>
+</html>
+

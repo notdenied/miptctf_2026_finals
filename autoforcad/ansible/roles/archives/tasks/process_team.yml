@@ -1,0 +1,92 @@
+- name: Compute base per-team variables
+  ansible.builtin.set_fact:
+    team_id: "{{ team_item.id | int }}"
+    team_name: "{{ team_item.name }}"
+    stage_dir: "{{ release_root }}/team-{{ team_item.id | int }}-stage"
+    stage_players_dir: "{{ release_root }}/team-{{ team_item.id | int }}-stage"
+    players_src_dir: "{{ player_cfg_root }}/team-{{ team_item.id | int }}"
+    vuln_conf_src: "{{ vuln_cfg_root }}/team-{{ team_item.id | int }}/vuln.conf"
+    vuln_ip_game: "10.80.{{ team_item.id | int }}.2"
+    vuln_host_in_inventory: "vlnbx_{{ team_item.id | int }}"
+
+- name: Compute host-dependent facts
+  ansible.builtin.set_fact:
+    vuln_ip_white: >-
+      {{
+        (hostvars[vuln_host_in_inventory].ansible_host
+          | default(hostvars[vuln_host_in_inventory].inventory_hostname, true))
+          | default('', true)
+      }}
+    vuln_pass_effective: >-
+      {{
+        (hostvars[vuln_host_in_inventory].vuln_pass)
+          | default('', true)
+      }}
+
+- name: Debug computed vars (optional)
+  ansible.builtin.debug:
+    msg:
+      team: "{{ team_name }} ({{ team_id }})"
+      players_src_dir: "{{ players_src_dir }}"
+      vuln_conf_src: "{{ vuln_conf_src }}"
+      stage_dir: "{{ stage_dir }}"
+
+- name: Ensure staging dirs
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: "{{ [stage_dir, stage_players_dir] }}"
+
+- name: Collect player configs (player-*.conf)
+  ansible.builtin.find:
+    paths: "{{ players_src_dir }}"
+    patterns: "player-*.conf"
+    file_type: file
+  register: player_confs
+
+
+- name: Copy player configs into staging
+  ansible.builtin.copy:
+    src: "{{ item.path }}"
+    dest: "{{ stage_players_dir }}/{{ item.path | basename }}"
+    mode: "0644"
+  loop: "{{ player_confs.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+
+- name: Ensure vulnbox config exists
+  ansible.builtin.stat:
+    path: "{{ vuln_conf_src }}"
+  register: st_vuln
+
+- name: Copy vulnbox config as vuln.conf
+  ansible.builtin.copy:
+    src: "{{ vuln_conf_src }}"
+    dest: "{{ stage_dir }}/vuln.conf"
+    mode: "0644"
+
+- name: Render readme.txt
+  ansible.builtin.template:
+    src: "templates/readme.txt.j2"
+    dest: "{{ stage_dir }}/readme.txt"
+    mode: "0644"
+  vars:
+    readme_team_name: "{{ team_name }}"
+    vuln_ip_game: "{{ vuln_ip_game }}"
+    vuln_ip_white: "{{ (vuln_ip_white | length > 0) | ternary(vuln_ip_white, 'UNSET') }}"
+    vuln_pass: "{{ vuln_pass_effective }}"
+
+- name: Create per-team ZIP archive team-<ID>.zip
+  ansible.builtin.archive:
+    path:
+      - "{{ stage_dir }}/player-*.conf"
+      - "{{ stage_dir }}/vuln.conf"
+      - "{{ stage_dir }}/README.txt"
+    dest: "{{ release_root }}/team-{{ team_id }}.zip"
+    format: zip
+
+- name: Cleanup stage directory (optional)
+  ansible.builtin.file:
+    path: "{{ stage_dir }}"
+    state: absent

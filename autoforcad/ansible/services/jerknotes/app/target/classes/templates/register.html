@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jerkv Notes — Регистрация</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .fade-in {
+            animation: fadeIn 1s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: none; }
+        }
+        .card {
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+            border-radius: 1.5rem;
+            border: none;
+        }
+        .brand {
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: 700;
+            font-size: 1.6rem;
+            color: #6366f1;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 8px #c7d2fe;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #6366f1 0%, #a5b4fc 100%);
+            border: none;
+            transition: box-shadow 0.2s, transform 0.2s;
+        }
+        .btn-primary:hover {
+            box-shadow: 0 4px 16px #6366f1aa;
+            transform: translateY(-2px) scale(1.03);
+        }
+        .form-label {
+            color: #6366f1;
+            font-weight: 600;
+        }
+        .form-check-label {
+            color: #6366f1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-3" style="max-width: 400px;">
+    <nav class="navbar navbar-light bg-white shadow-sm mb-4">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1 brand"><i class="bi bi-journal-text"></i> Jerkv Notes</span>
+        </div>
+    </nav>
+    <main class="container d-flex flex-column align-items-center justify-content-center flex-grow-1">
+            <div class="card p-4 fade-in" style="max-width: 370px; width: 100%;">
+                <div th:with="alertText=${param.error != null ? param.error : (error != null ? error : '')}, successText=${message != null ? message : (param.logout != null ? 'Вы успешно вышли из системы.' : '')}">
+                <div th:if="${alertText != ''}" class="alert alert-danger text-center mb-3" th:text="${alertText}"></div>
+                <div th:if="${alertText == '' and successText != ''}" class="alert alert-success text-center mb-3" th:text="${successText}"></div>
+            </div>
+            <h2 class="mb-4 text-center">Регистрация</h2>
+            <form action="/auth/register" method="post" autocomplete="on" id="registerForm">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Email</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                        <input type="email" class="form-control" id="username" name="username" required autofocus placeholder="you@example.com">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Пароль</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
+                        <input type="password" class="form-control" id="password" name="password" required placeholder="Минимум 6 символов">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="confirmPassword" class="form-label">Повторите пароль</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                        <input type="password" class="form-control" id="confirmPassword" name="confirm-password" required placeholder="Повторите пароль">
+                    </div>
+                    <div id="passHelp" class="form-text text-danger small d-none">Пароли не совпадают</div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <a href="/auth/login" class="btn btn-link p-0">Вход</a>
+                    <button type="submit" class="btn btn-primary px-4" id="registerBtn">Зарегистрироваться</button>
+                </div>
+            </form>
+        </div>
+    </main>
+    <footer class="text-center text-muted py-3 small mt-auto">&copy; 2025 Jerkv Notes</footer>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        (function(){
+            const form = document.getElementById('registerForm');
+            if (!form) return;
+            const pwd = document.getElementById('password');
+            const confirm = document.getElementById('confirmPassword');
+            const help = document.getElementById('passHelp');
+            const btn = document.getElementById('registerBtn');
+
+            function validate() {
+                if (!pwd.value && !confirm.value) {
+                    help.classList.add('d-none');
+                    btn.disabled = false;
+                    return true;
+                }
+                const match = pwd.value === confirm.value;
+                help.classList.toggle('d-none', match);
+                btn.disabled = !match;
+                return match;
+            }
+
+            pwd.addEventListener('input', validate);
+            confirm.addEventListener('input', validate);
+            form.addEventListener('submit', function(e){
+                if (!validate()) {
+                    e.preventDefault();
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
+

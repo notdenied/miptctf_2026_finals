@@ -1,0 +1,145 @@
+- name: Install dependencies
+  apt:
+    name:
+      - nginx
+      - apache2-utils
+    state: present
+    update_cache: yes
+
+- name: Create prometheus user
+  user:
+    name: "{{ prometheus_user }}"
+    system: yes
+    shell: /bin/false
+    home: "{{ prometheus_data_dir }}"
+    create_home: yes
+
+- name: Create directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ prometheus_config_dir }}"
+    - "{{ prometheus_data_dir }}"
+    - "{{ prometheus_data_dir }}/rules"
+
+- name: Download Prometheus
+  get_url:
+    url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+    dest: /tmp/prometheus.tar.gz
+
+- name: Extract Prometheus
+  unarchive:
+    src: /tmp/prometheus.tar.gz
+    dest: /tmp
+    remote_src: yes
+
+- name: Install Prometheus binary
+  command: >
+    install -m 0755
+    /tmp/prometheus-{{ prometheus_version }}.linux-amd64/prometheus
+    /usr/local/bin/prometheus
+
+- name: Install promtool
+  command: >
+    install -m 0755
+    /tmp/prometheus-{{ prometheus_version }}.linux-amd64/promtool
+    /usr/local/bin/promtool
+
+- name: Create Prometheus config
+  template:
+    src: prometheus.yml.j2
+    dest: "{{ prometheus_config_dir }}/prometheus.yml"
+  notify: restart prometheus
+
+- name: Create systemd service
+  copy:
+    dest: /etc/systemd/system/prometheus.service
+    content: |
+      [Unit]
+      Description=Prometheus
+      After=network.target
+
+      [Service]
+      User={{ prometheus_user }}
+      Group={{ prometheus_user }}
+      ExecStart=/usr/local/bin/prometheus \
+        --config.file={{ prometheus_config_dir }}/prometheus.yml \
+        --storage.tsdb.path={{ prometheus_data_dir }} \
+        --web.listen-address={{ prometheus_listen_address }}
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: restart prometheus
+
+- name: Set permissions
+  file:
+    path: "{{ item }}"
+    owner: "{{ prometheus_user }}"
+    group: "{{ prometheus_user }}"
+    recurse: yes
+  loop:
+    - "{{ prometheus_data_dir }}"
+    - "{{ prometheus_config_dir }}"
+
+# ---------------------------
+# 🔐 BASIC AUTH
+# ---------------------------
+
+- name: Create htpasswd file
+  command: >
+    htpasswd -bc /etc/nginx/.prometheus_pass
+    {{ prometheus_auth_user }}
+    {{ prometheus_auth_password }}
+  args:
+    creates: /etc/nginx/.prometheus_pass
+  notify: restart nginx
+
+- name: Configure Nginx
+  copy:
+    dest: /etc/nginx/sites-available/prometheus
+    content: |
+      server {
+          listen {{ nginx_listen_port }};
+
+          location / {
+              proxy_pass http://{{ prometheus_listen_address }};
+              auth_basic "Prometheus";
+              auth_basic_user_file /etc/nginx/.prometheus_pass;
+
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+          }
+      }
+  notify: restart nginx
+
+- name: Enable Nginx site
+  file:
+    src: /etc/nginx/sites-available/prometheus
+    dest: /etc/nginx/sites-enabled/prometheus
+    state: link
+    force: yes
+  notify: restart nginx
+
+- name: Remove default Nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: restart nginx
+
+- name: Cleanup temp files
+  file:
+    path: /tmp/prometheus*
+    state: absent
+
+- name: Ensure services started
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  loop:
+    - prometheus
+    - nginx
