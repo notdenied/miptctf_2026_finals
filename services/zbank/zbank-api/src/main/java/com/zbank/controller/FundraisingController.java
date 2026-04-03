@@ -23,6 +23,7 @@ public class FundraisingController {
     private final AccountService accountService;
     private final UserRepository userRepository;
 
+    /** Creates a new fundraising campaign linked to the given account. Returns a shareable link code. */
     @PostMapping
     public ResponseEntity<?> create(@RequestBody Map<String, Object> body) {
         User user = getCurrentUser();
@@ -52,6 +53,7 @@ public class FundraisingController {
         }
     }
 
+    /** Returns public info about a fundraising campaign by its link code. No authentication required. */
     @GetMapping("/{code}/view")
     public ResponseEntity<?> view(@PathVariable String code) {
         try {
@@ -69,6 +71,7 @@ public class FundraisingController {
         }
     }
 
+    /** Transfers the given amount from the contributor's account to the fundraising campaign's account. */
     @PostMapping("/{code}/contribute")
     public ResponseEntity<?> contribute(@PathVariable String code, @RequestBody Map<String, Object> body) {
         try {

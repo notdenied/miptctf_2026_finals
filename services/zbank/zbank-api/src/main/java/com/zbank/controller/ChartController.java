@@ -27,12 +27,13 @@ public class ChartController {
     private final AccountService accountService;
     private final UserRepository userRepository;
 
+    /** Generates a spending pie chart for the given account. */
     @PostMapping("/spending")
     public ResponseEntity<?> generateSpendingChart(@RequestBody Map<String, Object> body) {
         User user = getCurrentUser();
         try {
             Long accountId = Long.valueOf(body.get("accountId").toString());
-            String message = body.getOrDefault("message", "'SpendingReport'").toString();
+            String message = body.getOrDefault("message", "Chart").toString();
 
             Account account = accountService.getById(accountId);
             if (!account.getUser().getId().equals(user.getId())) {
@@ -57,9 +58,9 @@ public class ChartController {
         }
     }
 
+    /** Returns a previously generated chart by its UUID. No auth needed — the UUID is an unguessable capability token. */
     @GetMapping("/{chartId}")
     public ResponseEntity<?> getChart(@PathVariable String chartId) {
-        // Chart retrieval is by UUID — no auth needed, UUID is unguessable
         try {
             Map<String, Object> chart = chartService.getChart(chartId);
             return ResponseEntity.ok(chart);

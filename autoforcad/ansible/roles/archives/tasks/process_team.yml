@@ -60,11 +60,12 @@
     path: "{{ vuln_conf_src }}"
   register: st_vuln
 
-- name: Copy vulnbox config as vuln.conf
-  ansible.builtin.copy:
-    src: "{{ vuln_conf_src }}"
-    dest: "{{ stage_dir }}/vuln.conf"
-    mode: "0644"
+# do not add vulnbox WG config as it is not needed
+# - name: Copy vulnbox config as vuln.conf
+#   ansible.builtin.copy:
+#     src: "{{ vuln_conf_src }}"
+#     dest: "{{ stage_dir }}/vuln.conf"
+#     mode: "0644"
 
 - name: Render readme.txt
   ansible.builtin.template:
@@ -81,8 +82,8 @@
   ansible.builtin.archive:
     path:
       - "{{ stage_dir }}/player-*.conf"
-      - "{{ stage_dir }}/vuln.conf"
-      - "{{ stage_dir }}/README.txt"
+      # - "{{ stage_dir }}/vuln.conf"
+      - "{{ stage_dir }}/readme.txt"
     dest: "{{ release_root }}/team-{{ team_id }}.zip"
     format: zip
 

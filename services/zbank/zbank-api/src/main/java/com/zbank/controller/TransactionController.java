@@ -12,8 +12,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -25,6 +24,7 @@ public class TransactionController {
     private final AccountService accountService;
     private final UserRepository userRepository;
 
+    /** Transfers funds between two accounts. The source account must belong to the current user. */
     @PostMapping
     public ResponseEntity<?> transfer(@RequestBody Map<String, Object> body) {
         User user = getCurrentUser();
@@ -54,6 +54,29 @@ public class TransactionController {
         }
     }
 
+    /** Records a spend (outgoing payment) from the given account. No destination account is required. */
+    @PostMapping("/spend")
+    public ResponseEntity<?> spend(@RequestBody Map<String, Object> body) {
+        User user = getCurrentUser();
+        try {
+            Long accountId = Long.valueOf(body.get("accountId").toString());
+            BigDecimal amount = new BigDecimal(body.get("amount").toString());
+            String description = (String) body.getOrDefault("description", "Payment");
+
+            Transaction tx = transactionService.spend(user, accountId, amount, description);
+            return ResponseEntity.ok(Map.of(
+                    "id", tx.getId(),
+                    "fromAccountId", tx.getFromAccount().getId(),
+                    "amount", tx.getAmount(),
+                    "description", tx.getDescription() != null ? tx.getDescription() : "",
+                    "createdAt", tx.getCreatedAt().toString()
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /** Returns all transactions for a given account. The account must belong to the current user. */
     @GetMapping("/account/{accountId}")
     public ResponseEntity<?> getTransactions(@PathVariable Long accountId) {
         User user = getCurrentUser();
@@ -64,16 +87,20 @@ public class TransactionController {
 
         List<Map<String, Object>> txList = transactionService.getAccountTransactions(accountId)
                 .stream()
-                .map(tx -> Map.<String, Object>of(
-                        "id", tx.getId(),
-                        "fromAccountId", tx.getFromAccount().getId(),
-                        "toAccountId", tx.getToAccount().getId(),
-                        "amount", tx.getAmount(),
-                        "description", tx.getDescription() != null ? tx.getDescription() : "",
-                        "createdAt", tx.getCreatedAt().toString()
-                ))
+                .map(this::txToMap)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(txList);
+    }
+
+    private Map<String, Object> txToMap(Transaction tx) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", tx.getId());
+        map.put("fromAccountId", tx.getFromAccount() != null ? tx.getFromAccount().getId() : null);
+        map.put("toAccountId", tx.getToAccount() != null ? tx.getToAccount().getId() : null);
+        map.put("amount", tx.getAmount());
+        map.put("description", tx.getDescription() != null ? tx.getDescription() : "");
+        map.put("createdAt", tx.getCreatedAt().toString());
+        return map;
     }
 
     private User getCurrentUser() {

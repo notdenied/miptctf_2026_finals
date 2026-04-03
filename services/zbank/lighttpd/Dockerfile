@@ -1,14 +1,15 @@
-FROM debian:bookworm-slim
+# Stage 1: Build Frontend
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY zbank-frontend/package.json zbank-frontend/package-lock.json* ./
+RUN npm install
+COPY zbank-frontend/ ./
+RUN npm run build
 
-RUN apt-get update && \
-    apt-get install -y lighttpd && \
-    rm -rf /var/lib/apt/lists/*
+# Stage 2: Serve with lighttpd
+FROM jitesoft/lighttpd:1.4.80
 
-# Enable mod_proxy
-RUN lighttpd-enable-mod proxy
-
-COPY lighttpd.conf /etc/lighttpd/lighttpd.conf
+COPY lighttpd/lighttpd.conf /etc/lighttpd/lighttpd.conf
+COPY --from=build /app/dist /var/www/html
 
 EXPOSE 8080
-
-CMD ["lighttpd", "-D", "-f", "/etc/lighttpd/lighttpd.conf"]

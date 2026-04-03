@@ -32,7 +32,6 @@ public class SupportService {
 
     @Transactional
     public List<SupportMessage> sendMessage(User user, String message) {
-        // Save user message
         SupportMessage userMsg = SupportMessage.builder()
                 .user(user)
                 .message(message)
@@ -40,7 +39,6 @@ public class SupportService {
                 .build();
         supportMessageRepository.save(userMsg);
 
-        // Generate bot response
         String botResponse = BOT_RESPONSES[RANDOM.nextInt(BOT_RESPONSES.length)];
         SupportMessage botMsg = SupportMessage.builder()
                 .user(user)

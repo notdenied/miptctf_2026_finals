@@ -48,7 +48,6 @@ public class FundraisingService {
 
         Long toAccountId = fundraising.getAccount().getId();
 
-        // Lock in consistent order
         Long firstId = Math.min(fromAccountId, toAccountId);
         Long secondId = Math.max(fromAccountId, toAccountId);
 

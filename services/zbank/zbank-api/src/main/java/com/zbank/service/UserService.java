@@ -31,10 +31,9 @@ public class UserService {
                 .build();
         user = userRepository.save(user);
 
-        // Create default account with 100 rubles
         Account defaultAccount = Account.builder()
                 .user(user)
-                .name("Основной")
+                .name("Main")
                 .build();
         accountRepository.save(defaultAccount);
 

@@ -8,7 +8,7 @@
 
 Надо сделать архив с сервисами `services.tar` и положить в ansible диру, важно наличие внутри `start_all.sh`, примеры внутри диры имеются. 
 
-затем кофигурим в `./ansible/group_vars/all`: `team_count` и `players_count` - количество команд и конфигов на команду. 
+затем конфигурим в `./ansible/group_vars/all`: `team_count` и `players_count` - количество команд и конфигов на команду. 
 `teams.yaml` также нужно заполнить
 
 `./ansible/roles/forcad-setup/templates/config.yml.j2`  настраиваем конфиг форкада для сервисов.

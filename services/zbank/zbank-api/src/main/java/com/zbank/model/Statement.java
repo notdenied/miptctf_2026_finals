@@ -29,4 +29,9 @@ public class Statement {
     @Builder.Default
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    /** Number of processing attempts made by the worker. Abandoned after 3. */
+    @Builder.Default
+    @Column(nullable = false)
+    private int attempts = 0;
 }

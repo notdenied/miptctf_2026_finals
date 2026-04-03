@@ -12,6 +12,9 @@ public class AppConfig {
     @Value("${minio.endpoint:http://minio:9000}")
     private String minioEndpoint;
 
+    @Value("${minio.public-endpoint:${minio.endpoint:http://minio:9000}}")
+    private String minioPublicEndpoint;
+
     @Value("${minio.access-key:minioadmin}")
     private String minioAccessKey;
 
@@ -22,6 +25,14 @@ public class AppConfig {
     public MinioClient minioClient() {
         return MinioClient.builder()
                 .endpoint(minioEndpoint)
+                .credentials(minioAccessKey, minioSecretKey)
+                .build();
+    }
+
+    @Bean("presignMinioClient")
+    public MinioClient presignMinioClient() {
+        return MinioClient.builder()
+                .endpoint(minioPublicEndpoint)
                 .credentials(minioAccessKey, minioSecretKey)
                 .build();
     }

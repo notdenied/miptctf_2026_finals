@@ -24,6 +24,7 @@ public class AuthController {
     private final UserRepository userRepository;
     private final AuthenticationManager authenticationManager;
 
+    /** Registers a new user. Returns the created user's id and username. */
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody Map<String, String> body) {
         String username = body.get("username");
@@ -42,6 +43,7 @@ public class AuthController {
         }
     }
 
+    /** Authenticates a user and creates a server-side session. Returns the session id. */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> body, HttpServletRequest request) {
         String username = body.get("username");
@@ -66,6 +68,7 @@ public class AuthController {
         }
     }
 
+    /** Returns the id and username of the currently authenticated user. */
     @GetMapping("/me")
     public ResponseEntity<?> me() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();

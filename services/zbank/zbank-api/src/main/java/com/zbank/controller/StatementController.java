@@ -26,6 +26,7 @@ public class StatementController {
     private final AccountService accountService;
     private final UserRepository userRepository;
 
+    /** Creates a new statement job for the given account and format (csv/json/txt). Returns statement id and initial status. */
     @PostMapping
     public ResponseEntity<?> createStatement(@RequestBody Map<String, Object> body) {
         User user = getCurrentUser();
@@ -49,6 +50,7 @@ public class StatementController {
         }
     }
 
+    /** Returns current status and s3Key of a statement owned by the current user. */
     @GetMapping("/{id}")
     public ResponseEntity<?> getStatement(@PathVariable Long id) {
         User user = getCurrentUser();
@@ -64,22 +66,23 @@ public class StatementController {
         ));
     }
 
-    @GetMapping("/{id}/download")
-    public ResponseEntity<?> downloadStatement(@PathVariable Long id) {
-        User user = getCurrentUser();
-        Statement statement = statementService.getById(id);
-        if (!statement.getAccount().getUser().getId().equals(user.getId())) {
-            return ResponseEntity.status(403).body(Map.of("error", "Access denied"));
+    /** Streams the generated file from MinIO by its s3Key. */
+    @GetMapping("/download")
+    public ResponseEntity<?> downloadByS3Key(@RequestParam String s3Key) {
+        try {
+            Statement statement = statementService.getByS3Key(s3Key);
+            if (!"DONE".equals(statement.getStatus())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Statement is not ready yet"));
+            }
+            InputStream stream = statementService.downloadStatement(s3Key);
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=statement." + statement.getFormat())
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(new InputStreamResource(stream));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
         }
-        if (!"DONE".equals(statement.getStatus())) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Statement is not ready yet"));
-        }
-
-        InputStream stream = statementService.downloadStatement(statement);
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=statement." + statement.getFormat())
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
-                .body(new InputStreamResource(stream));
     }
 
     private User getCurrentUser() {

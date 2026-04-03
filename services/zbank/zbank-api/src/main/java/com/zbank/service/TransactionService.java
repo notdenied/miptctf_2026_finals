@@ -2,6 +2,7 @@ package com.zbank.service;
 
 import com.zbank.model.Account;
 import com.zbank.model.Transaction;
+import com.zbank.model.User;
 import com.zbank.repository.AccountRepository;
 import com.zbank.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,10 +19,6 @@ public class TransactionService {
     private final AccountRepository accountRepository;
     private final TransactionRepository transactionRepository;
 
-    /**
-     * Transfer money between accounts with pessimistic locking.
-     * Lock ordering by ID to prevent deadlocks.
-     */
     @Transactional
     public Transaction transfer(Long fromAccountId, Long toAccountId, BigDecimal amount, String description) {
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -31,7 +28,6 @@ public class TransactionService {
             throw new IllegalArgumentException("Cannot transfer to the same account");
         }
 
-        // Lock in consistent order to prevent deadlocks
         Long firstId = Math.min(fromAccountId, toAccountId);
         Long secondId = Math.max(fromAccountId, toAccountId);
 
@@ -64,5 +60,34 @@ public class TransactionService {
 
     public List<Transaction> getAccountTransactions(Long accountId) {
         return transactionRepository.findByFromAccountIdOrToAccountIdOrderByCreatedAtDesc(accountId, accountId);
+    }
+    
+    @Transactional
+    public Transaction spend(User user, Long accountId, BigDecimal amount, String description) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Amount must be positive");
+        }
+
+        Account account = accountRepository.findByIdForUpdate(accountId)
+                .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+
+        if (!account.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("Account does not belong to user");
+        }
+
+        if (account.getBalance().compareTo(amount) < 0) {
+            throw new IllegalArgumentException("Insufficient funds");
+        }
+
+        account.setBalance(account.getBalance().subtract(amount));
+        accountRepository.save(account);
+
+        Transaction transaction = Transaction.builder()
+                .fromAccount(account)
+                .toAccount(null)
+                .amount(amount)
+                .description(description)
+                .build();
+        return transactionRepository.save(transaction);
     }
 }

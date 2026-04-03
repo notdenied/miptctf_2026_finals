@@ -20,6 +20,7 @@ import time
 import traceback
 
 import requests
+
 from checklib import *
 
 
@@ -44,7 +45,7 @@ class ZBankChecker(BaseChecker):
             "username": username,
             "password": password
         })
-        self.assert_eq(r.status_code, 200, "Register failed", f"Register failed: {r.status_code} {r.text}")
+        self.assert_eq(r.status_code, 200, f"Register failed: {r.status_code} {r.text}")
         data = r.json()
         self.assert_in("id", data, "No id in register response")
         return username, password, data
@@ -54,7 +55,7 @@ class ZBankChecker(BaseChecker):
             "username": username,
             "password": password
         })
-        self.assert_eq(r.status_code, 200, "Login failed", f"Login failed: {r.status_code} {r.text}")
+        self.assert_eq(r.status_code, 200, f"Login failed: {r.status_code} {r.text}")
         return r.json()
 
     def _get_accounts(self, session):
@@ -139,7 +140,7 @@ class ZBankChecker(BaseChecker):
             "second_account_id": second_account["id"],
             "flag": flag
         })
-        self.cquit(Status.OK, username, state)
+        self.cquit(Status.OK, str(second_account["id"]), state)
 
     def _put_statements(self, sess, flag_id, flag):
         username, password, _ = self._register(sess)
@@ -183,7 +184,7 @@ class ZBankChecker(BaseChecker):
             "account_id": account_id,
             "flag": flag
         })
-        self.cquit(Status.OK, username, state)
+        self.cquit(Status.OK, str(statement_id), state)
 
     def _put_support(self, sess, flag_id, flag):
         username, password, _ = self._register(sess)
@@ -258,7 +259,7 @@ class ZBankChecker(BaseChecker):
         self.cquit(Status.OK, username, state)
 
     def _put_rhythm(self, sess, flag_id, flag):
-        # Create two users, make them friends, post private content
+        # Create two users, make them friends, post private (FRIENDS) content
         username1, password1, _ = self._register(sess)
         self._login(sess, username1, password1)
 
@@ -266,14 +267,28 @@ class ZBankChecker(BaseChecker):
         username2, password2, _ = self._register(sess2)
         self._login(sess2, username2, password2)
 
-        # User1 creates public and private posts
+        # User1 creates a FRIENDS-only post with the flag
         r = sess.post(f"{self.base_url}/api/rhythm/posts", json={
             "content": flag,
             "isPrivate": True
         })
         self.assert_eq(r.status_code, 200, "Create private post failed")
-        private_post_id = r.json()["id"]
+        private_post_data = r.json()
+        private_post_id   = private_post_data["id"]
+        private_post_uuid = private_post_data["postUuid"]
 
+        # User1 creates a PROTECTED post
+        r = sess.post(f"{self.base_url}/api/rhythm/posts", json={
+            "content": "Protected post " + self._rnd_str(5),
+            "visibility": "PROTECTED"
+        })
+        self.assert_eq(r.status_code, 200, "Create protected post failed")
+        protected_post_data = r.json()
+        protected_post_uuid = protected_post_data["postUuid"]
+        protected_post_key  = protected_post_data["accessKey"]
+        self.assert_neq(protected_post_key, "", "accessKey missing from PROTECTED post")
+
+        # User1 creates a public post
         r = sess.post(f"{self.base_url}/api/rhythm/posts", json={
             "content": "Public post " + self._rnd_str(5),
             "isPrivate": False
@@ -293,7 +308,7 @@ class ZBankChecker(BaseChecker):
         })
         self.assert_eq(r.status_code, 200, "Accept friend request failed")
 
-        # User2 can see private posts
+        # User2 can see the private (FRIENDS) post via user profile
         r = sess2.get(f"{self.base_url}/api/rhythm/posts/user/{username1}")
         self.assert_eq(r.status_code, 200, "Get user posts failed")
         posts = r.json()
@@ -301,15 +316,18 @@ class ZBankChecker(BaseChecker):
         self.assert_in(flag, post_contents, "Private post not visible to friend")
 
         state = json.dumps({
-            "username1": username1,
-            "password1": password1,
-            "username2": username2,
-            "password2": password2,
-            "private_post_id": private_post_id,
-            "friendship_id": friendship_id,
-            "flag": flag
+            "username1":           username1,
+            "password1":           password1,
+            "username2":           username2,
+            "password2":           password2,
+            "private_post_id":     private_post_id,
+            "private_post_uuid":   private_post_uuid,
+            "protected_post_uuid": protected_post_uuid,
+            "protected_post_key":  protected_post_key,
+            "friendship_id":       friendship_id,
+            "flag":                flag
         })
-        self.cquit(Status.OK, username1, state)
+        self.cquit(Status.OK, str(protected_post_uuid), state)
 
     def _put_deposits(self, sess, flag_id, flag):
         username, password, _ = self._register(sess)
@@ -341,7 +359,7 @@ class ZBankChecker(BaseChecker):
             "account_id": account_id,
             "flag": flag
         })
-        self.cquit(Status.OK, username, state)
+        self.cquit(Status.OK, str(deposit["id"]), state)
 
     def _put_charts(self, sess, flag_id, flag):
         username, password, _ = self._register(sess)
@@ -373,7 +391,7 @@ class ZBankChecker(BaseChecker):
             "accountId": account_id,
             "message": spel_message
         })
-        self.assert_eq(r.status_code, 200, "Chart generation failed", f"Chart gen failed: {r.text}")
+        self.assert_eq(r.status_code, 200, f"Chart gen failed: {r.text}")
         chart = r.json()
 
         self.assert_in("chartId", chart, "No chartId in chart response")
@@ -381,8 +399,7 @@ class ZBankChecker(BaseChecker):
 
         # Verify variable substitution worked
         self.assert_eq(chart["message"], expected_message,
-                       "SpEL variable substitution failed",
-                       f"Expected '{expected_message}', got '{chart.get('message')}'")
+                       f"Variable substitution failed: Expected '{expected_message}', got '{chart.get('message')}'")
 
         # Verify flag is in categories
         categories = chart.get("categories", {})
@@ -397,7 +414,7 @@ class ZBankChecker(BaseChecker):
             "transfer_amount": transfer_amount,
             "flag": flag
         })
-        self.cquit(Status.OK, username, state)
+        self.cquit(Status.OK, str(account_id), state)
 
     # ==================== GET ====================
 
@@ -452,11 +469,14 @@ class ZBankChecker(BaseChecker):
         self.assert_eq(r.status_code, 200, "Get statement failed")
         statement = r.json()
 
-        # Statement might still be processing, that's OK for the check
         if statement["status"] == "DONE":
-            # Try to download
-            r = sess.get(f"{self.base_url}/api/statements/{state['statement_id']}/download")
-            self.assert_eq(r.status_code, 200, "Download statement failed")
+            s3_key = statement.get("s3Key", "")
+            self.assert_neq(s3_key, "", "s3Key missing from DONE statement")
+
+            # Download directly by s3Key (no auth required — UUID is capability token)
+            r = sess.get(f"{self.base_url}/api/statements/download",
+                         params={"s3Key": s3_key})
+            self.assert_eq(r.status_code, 200, "Download statement by s3Key failed")
             self.assert_in(flag, r.text, "Flag not found in statement")
 
         self.cquit(Status.OK)
@@ -493,7 +513,7 @@ class ZBankChecker(BaseChecker):
         self.cquit(Status.OK)
 
     def _get_rhythm_check(self, sess, state, flag):
-        # Login as user2 and check private post visibility
+        # Login as user2 and check private post visibility on profile
         self._login(sess, state["username2"], state["password2"])
 
         r = sess.get(f"{self.base_url}/api/rhythm/posts/user/{state['username1']}")
@@ -502,7 +522,38 @@ class ZBankChecker(BaseChecker):
         post_contents = [p["content"] for p in posts]
         self.assert_in(flag, post_contents, "Flag (private post) not visible to friend")
 
-        # Login as user1 and check own posts
+        # Access the FRIENDS post by UUID (user2 is a friend — should succeed)
+        private_uuid = state.get("private_post_uuid")
+        if private_uuid:
+            r = sess.get(f"{self.base_url}/api/rhythm/posts/{private_uuid}")
+            self.assert_eq(r.status_code, 200, "Get FRIENDS post by UUID failed for friend")
+            self.assert_eq(r.json()["content"], flag, "Flag content mismatch in UUID post")
+
+        # Access the PROTECTED post by UUID without key — must be denied
+        protected_uuid = state.get("protected_post_uuid")
+        protected_key  = state.get("protected_post_key")
+        if protected_uuid and protected_key:
+            r = sess.get(f"{self.base_url}/api/rhythm/posts/{protected_uuid}")
+            self.assert_eq(r.status_code, 403, "PROTECTED post should be inaccessible without key")
+
+            # With correct key — must succeed
+            r = sess.get(f"{self.base_url}/api/rhythm/posts/{protected_uuid}",
+                         params={"key": protected_key})
+            self.assert_eq(r.status_code, 200, "PROTECTED post should be accessible with correct key")
+
+        # Search for the flag by content prefix (user2 is a friend, so FRIENDS posts appear)
+        r = sess.post(f"{self.base_url}/api/rhythm/posts/search",
+                      json={"content": flag[:6]})
+        self.assert_eq(r.status_code, 200, "Search posts failed")
+        search_contents = [p["content"] for p in r.json()]
+        self.assert_in(flag, search_contents, "Flag not found in search results (friend should see it)")
+
+        # Search by visibility=FRIENDS — result set must be non-empty
+        r = sess.post(f"{self.base_url}/api/rhythm/posts/search",
+                      json={"visibility": "FRIENDS"})
+        self.assert_eq(r.status_code, 200, "Search by visibility failed")
+
+        # Login as user1 and verify own posts
         sess2 = self.get_initialized_session()
         self._login(sess2, state["username1"], state["password1"])
         r = sess2.get(f"{self.base_url}/api/rhythm/posts")
@@ -543,7 +594,7 @@ class ZBankChecker(BaseChecker):
         # Retrieve chart by UUID
         chart_id = state["chart_id"]
         r = sess.get(f"{self.base_url}/api/charts/{chart_id}")
-        self.assert_eq(r.status_code, 200, "Get chart by UUID failed", f"Chart GET failed: {r.text}")
+        self.assert_eq(r.status_code, 200, f"Get chart by UUID failed: {r.text}")
         chart = r.json()
 
         # Verify flag is stored in chart categories
@@ -553,8 +604,7 @@ class ZBankChecker(BaseChecker):
         # Verify SpEL variable substitution was evaluated correctly
         expected_message = state["expected_message"]
         self.assert_eq(chart["message"], expected_message,
-                       "Chart message corrupted",
-                       f"Expected '{expected_message}', got '{chart.get('message')}'")
+                       f"Chart message corrupted: Expected '{expected_message}', got '{chart.get('message')}'")
 
         # Verify chart data integrity
         transfer_amount = state["transfer_amount"]

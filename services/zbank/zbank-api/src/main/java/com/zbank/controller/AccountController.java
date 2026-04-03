@@ -21,6 +21,7 @@ public class AccountController {
     private final AccountService accountService;
     private final UserRepository userRepository;
 
+    /** Returns all accounts belonging to the current user. */
     @GetMapping
     public ResponseEntity<?> getAccounts() {
         User user = getCurrentUser();
@@ -31,6 +32,7 @@ public class AccountController {
         return ResponseEntity.ok(accounts);
     }
 
+    /** Creates a new account for the current user with the given name. */
     @PostMapping
     public ResponseEntity<?> createAccount(@RequestBody Map<String, String> body) {
         User user = getCurrentUser();
@@ -39,6 +41,7 @@ public class AccountController {
         return ResponseEntity.ok(toMap(account));
     }
 
+    /** Returns a single account by id. Returns 403 if the account belongs to another user. */
     @GetMapping("/{id}")
     public ResponseEntity<?> getAccount(@PathVariable Long id) {
         User user = getCurrentUser();

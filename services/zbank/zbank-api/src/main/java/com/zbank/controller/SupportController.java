@@ -21,6 +21,7 @@ public class SupportController {
     private final SupportService supportService;
     private final UserRepository userRepository;
 
+    /** Sends a support message from the current user and returns the updated conversation. */
     @PostMapping("/messages")
     public ResponseEntity<?> sendMessage(@RequestBody Map<String, String> body) {
         User user = getCurrentUser();
@@ -33,6 +34,7 @@ public class SupportController {
         return ResponseEntity.ok(messages.stream().map(this::toMap).collect(Collectors.toList()));
     }
 
+    /** Returns the full support conversation history of the current user. */
     @GetMapping("/messages")
     public ResponseEntity<?> getMessages() {
         User user = getCurrentUser();

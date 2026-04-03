@@ -14,8 +14,17 @@ services:
       retries: 10
     restart: unless-stopped
 
+  minio-init:
+    image: alpine
+    command: sh -c "chown -R 65532:65532 /data"
+    volumes:
+      - miniodata:/data
+
   minio:
     image: cgr.dev/chainguard/minio:latest
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioadmin
@@ -39,6 +48,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+      chart-service:
+        condition: service_started
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/zbank
       SPRING_DATASOURCE_USERNAME: zbank
@@ -48,17 +59,39 @@ services:
     restart: unless-stopped
 
   lighttpd:
-    build: ./lighttpd
+    build: 
+      context: .
+      dockerfile: ./lighttpd/Dockerfile
     ports:
       - "8080:8080"
     depends_on:
       - zbank-api
     restart: unless-stopped
 
+  statement-worker:
+    build: ./statement-worker
+    depends_on:
+      - zbank-api
+    environment:
+      API_BASE: http://zbank-api:8888
+      POLL_INTERVAL: "5"
+    restart: unless-stopped
+
   chart-service:
     build: ./chart-service
+    depends_on:
+      - redis
+    environment:
+      REDIS_HOST: redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
     restart: unless-stopped
 
 volumes:
   pgdata:
   miniodata:
+  redisdata:
