@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-import hashlib
+import base64
 import os
+import random
 import secrets
 import socket
 import sys
@@ -26,37 +27,30 @@ TIMEOUT = float(os.environ.get("BABUINTERPRETER_TIMEOUT", "10"))
 BASIC_CHECK_COUNT = 10
 ERROR_CHECK_COUNT = 3
 HOST_OVERRIDE = os.environ.get("BABUINTERPRETER_HOST_OVERRIDE", "host.docker.internal")
-
-
-def sha_seed(*parts: str) -> str:
-    return hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
-
-
-def derive_storage_id(flag_id: str, vuln: str) -> str:
-    return "storageID-" + sha_seed("storageID-", flag_id, vuln)[:24]
-
-
-def derive_storage_key(flag_id: str, vuln: str) -> str:
-    return "storageKEY-" + sha_seed("storageKEY-", flag_id, vuln)[:28]
+DEBUG = False
 
 
 def random_seed() -> str:
     return secrets.token_hex(16)
 
 
-def random_footer() -> str:
-    return secrets.token_hex(8)
+def random_storage_id() -> str:
+    return "storageID-" + secrets.token_hex(12)
+
+
+def random_storage_key() -> str:
+    return "storageKEY-" + secrets.token_hex(14)
 
 
 def pack_private_flag_data(storage_id: str, storage_key: str) -> str:
     return storage_id + "|" + storage_key
 
 
-def unpack_private_flag_data(flag_id: str, vuln: str) -> tuple[str, str]:
-    parts = flag_id.split("|", 1)
+def unpack_private_flag_data(private_flag_data: str) -> tuple[str, str]:
+    parts = private_flag_data.split("|", 1)
     if len(parts) == 2 and parts[0] and parts[1]:
         return parts[0], parts[1]
-    return derive_storage_id(flag_id, vuln), derive_storage_key(flag_id, vuln)
+    raise ValueError("private flag data must contain storage_id|storage_key")
 
 
 class CheckMachine:
@@ -80,10 +74,7 @@ class CheckMachine:
         return b"".join(chunks).decode("utf-8", errors="replace")
 
     def run_program(self, program_text: str) -> tuple[str, str]:
-        payload = program_text
-        if not payload.endswith("\n"):
-            payload += "\n"
-        payload += "EOF\n"
+        payload = base64.b64encode(program_text.encode("utf-8")).decode("ascii") + "\n"
         try:
             with socket.create_connection((self.resolve_host(), PORT), timeout=TIMEOUT) as sock:
                 sock.settimeout(TIMEOUT)
@@ -113,66 +104,73 @@ class CheckMachine:
         self.checker.assert_in(expected_substr, actual, f"{label} failed", status=status)
 
     def fail_with_program(self, public: str, details: list[str], status: Status) -> None:
+        if not DEBUG:
+            self.checker.cquit(status, public)
         self.checker.cquit(status, public, "\n\n".join(details))
 
-    def build_flagstore_program(self, storage_id: str, storage_key: str, flag: str, footer: str) -> str:
+    def build_flagstore_program(self, storage_id: str, storage_key: str, flag: str) -> str:
         source = generate_flagstore_program(
             storage_id=storage_id,
             storage_key=storage_key,
             flag=flag,
-            output_text=footer,
             seed=random_seed(),
         )
         return self.obfuscate(source, random_seed())
 
-    def build_flagload_program(self, storage_id: str, storage_key: str, footer: str) -> str:
+    def build_flagload_program(self, storage_id: str, storage_key: str) -> str:
         source = generate_flagload_program(
             storage_id=storage_id,
             storage_key=storage_key,
-            output_text=footer,
             seed=random_seed(),
         )
         return self.obfuscate(source, random_seed())
 
-    def run_basic_sanity(self) -> None:
-        for _ in range(BASIC_CHECK_COUNT):
-            output_text = secrets.token_hex(8)
-            seed = random_seed()
-            source = generate_basic_program(output_text, seed=seed)
-            _, output = self.run_program(source)
-            expected = output_text + "\n"
-            if output != expected:
-                self.fail_with_program(
-                    "Basic language tests failed",
-                    [
-                        f"kind: basic",
-                        f"seed: {seed}",
-                        f"expected_stdout: {expected!r}",
-                        f"actual_output: {output!r}",
-                        "program:",
-                        source,
-                    ],
-                    Status.MUMBLE,
-                )
+    def run_basic_sanity_case(self) -> None:
+        output_text = secrets.token_hex(8)
+        seed = random_seed()
+        source = generate_basic_program(output_text, seed=seed)
+        _, output = self.run_program(source)
+        expected = output_text + "\n"
+        if output != expected:
+            self.fail_with_program(
+                "Language tests failed",
+                [
+                    f"kind: basic",
+                    f"seed: {seed}",
+                    f"expected_stdout: {expected!r}",
+                    f"actual_output: {output!r}",
+                    "program:",
+                    source,
+                ],
+                Status.MUMBLE,
+            )
 
-    def run_error_sanity(self) -> None:
-        for _ in range(ERROR_CHECK_COUNT):
-            seed = random_seed()
-            source, error_text = generate_error_program(seed=seed)
-            _, output = self.run_program(source)
-            if error_text not in output:
-                self.fail_with_program(
-                    "Error language tests failed",
-                    [
-                        f"kind: error",
-                        f"seed: {seed}",
-                        f"expected_substring: {error_text!r}",
-                        f"actual_output: {output!r}",
-                        "program:",
-                        source,
-                    ],
-                    Status.MUMBLE,
-                )
+    def run_error_sanity_case(self) -> None:
+        seed = random_seed()
+        source, error_text = generate_error_program(seed=seed)
+        _, output = self.run_program(source)
+        if error_text not in output:
+            self.fail_with_program(
+                "Language tests failed",
+                [
+                    f"kind: error",
+                    f"seed: {seed}",
+                    f"expected_substring: {error_text!r}",
+                    f"actual_output: {output!r}",
+                    "program:",
+                    source,
+                ],
+                Status.MUMBLE,
+            )
+
+    def run_mixed_sanity(self) -> None:
+        jobs = (["basic"] * BASIC_CHECK_COUNT) + (["error"] * ERROR_CHECK_COUNT)
+        random.shuffle(jobs)
+        for job in jobs:
+            if job == "basic":
+                self.run_basic_sanity_case()
+            else:
+                self.run_error_sanity_case()
 
 
 class Checker(BaseChecker):
@@ -189,26 +187,70 @@ class Checker(BaseChecker):
             self.cquit(Status.DOWN, "Connection error", repr(exc))
 
     def check(self):
-        self.mch.run_basic_sanity()
-        self.mch.run_error_sanity()
+        self.mch.run_mixed_sanity()
         self.cquit(Status.OK)
 
+    def fail_storage_io(
+        self,
+        public: str,
+        status: Status,
+        expected: str,
+        actual: str,
+        storage_id: str,
+        storage_key: str,
+        program_text: str,
+        extra: list[str] | None = None,
+    ) -> None:
+        details = [
+            f"expected_stdout: {expected!r}",
+            f"actual_output: {actual!r}",
+            f"storage_id: {storage_id}",
+            f"storage_key: {storage_key}",
+        ]
+        if extra:
+            details.extend(extra)
+        details.extend(["program:", program_text])
+        self.mch.fail_with_program(public, details, status)
+
     def put(self, flag_id, flag, vuln):
-        storage_id = derive_storage_id(flag_id, vuln)
-        storage_key = derive_storage_key(flag_id, vuln)
-        footer = random_footer()
-        _, output = self.mch.run_program(self.mch.build_flagstore_program(storage_id, storage_key, flag, footer))
-        self.mch.assert_output("Store", output, f"{flag}\n{footer}\n", Status.MUMBLE)
+        del flag_id, vuln
+        storage_id = random_storage_id()
+        storage_key = random_storage_key()
+        program_text = self.mch.build_flagstore_program(storage_id, storage_key, flag)
+        _, output = self.mch.run_program(program_text)
+        expected = f"{flag}\n"
+        if output != expected:
+            self.fail_storage_io(
+                public="Store failed",
+                status=Status.MUMBLE,
+                expected=expected,
+                actual=output,
+                storage_id=storage_id,
+                storage_key=storage_key,
+                program_text=program_text,
+            )
         self.cquit(Status.OK, storage_id, pack_private_flag_data(storage_id, storage_key))
 
     def get(self, flag_id, flag, vuln):
+        del vuln
         try:
-            storage_id, storage_key = unpack_private_flag_data(flag_id, vuln)
+            storage_id, storage_key = unpack_private_flag_data(flag_id)
         except ValueError as exc:
             self.cquit(Status.ERROR, "Invalid private flag data", repr(exc))
-        footer = random_footer()
-        _, output = self.mch.run_program(self.mch.build_flagload_program(storage_id, storage_key, footer))
-        self.mch.assert_output("Load", output, f"{flag}\n{footer}\n", Status.CORRUPT)
+        program_text = self.mch.build_flagload_program(storage_id, storage_key)
+        _, output = self.mch.run_program(program_text)
+        expected = f"{flag}\n"
+        if output != expected:
+            self.fail_storage_io(
+                public="Load failed",
+                status=Status.CORRUPT,
+                expected=expected,
+                actual=output,
+                storage_id=storage_id,
+                storage_key=storage_key,
+                program_text=program_text,
+                extra=[f"private_flag_data: {flag_id!r}"],
+            )
         self.cquit(Status.OK)
 
 

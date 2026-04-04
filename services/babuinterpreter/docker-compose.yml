@@ -1,13 +1,14 @@
 services:
   babuinterpreter:
     build:
-      context: ..
-      dockerfile: service/Dockerfile
+      context: .
+      dockerfile: ./Dockerfile
     image: babuinterpreter-service:local
     ports:
       - "31337:31337"
     environment:
       BABUIN_SERVICE_PORT: "31337"
       BABUIN_STORAGE_PATH: /var/lib/babuinterpreter/storage.sqlite
+      BABUIN_STORAGE_BUSY_TIMEOUT_MS: "5000"
     volumes:
       - ./data:/var/lib/babuinterpreter

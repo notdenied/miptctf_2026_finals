@@ -13,8 +13,8 @@ RUN apt-get update \
 RUN mkdir -p /var/lib/babuinterpreter
 RUN mkdir -p /service
 
-COPY service/babuinterpreter /service/babuinterpreter
-COPY service/entrypoint.py /service/entrypoint.py
+COPY babuinterpreter /service/babuinterpreter
+COPY entrypoint.py /service/entrypoint.py
 
 RUN chmod 0755 /service/babuinterpreter /service/entrypoint.py
 

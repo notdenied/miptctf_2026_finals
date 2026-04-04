@@ -1,30 +1,34 @@
 #!/usr/bin/env python3
 
+import base64
 import os
 import sys
 import tempfile
 
 
-TERMINATOR = "EOF"
 INTERPRETER = os.environ.get("BABUIN_INTERPRETER", "/service/babuinterpreter")
 
 
 def main() -> int:
-    print('Enter your program for babuinterpreter line by line (enter "EOF" line to finish):')
-    lines: list[str] = []
+    print("Send one line of base64-encoded babuinterpreter source:", flush=True)
     while True:
         try:
-            line = input()
+            encoded_source = input()
         except EOFError:
-            print("client disconnected before terminator", file=sys.stderr)
+            print("client disconnected before program payload", file=sys.stderr)
             return 1
-        if line == TERMINATOR:
+        if encoded_source:
             break
-        lines.append(line + "\n")
+
+    try:
+        program_bytes = base64.b64decode(encoded_source.encode("ascii"), validate=True)
+    except (ValueError, UnicodeEncodeError) as exc:
+        print(f"invalid base64 payload: {exc}", file=sys.stderr)
+        return 1
 
     fd, path = tempfile.mkstemp(prefix="babuin-service-", suffix=".bbn")
     with os.fdopen(fd, "w", encoding="utf-8", newline="") as handle:
-        handle.writelines(lines)
+        handle.write(program_bytes.decode("utf-8"))
 
     os.execve(INTERPRETER, [INTERPRETER, path], dict(os.environ))
     return 1

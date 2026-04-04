@@ -698,6 +698,23 @@ class Obfuscator:
                 break
         return acc % mod
 
+    def compute_audit_guard(self, seed_text: str) -> int:
+        left = str(len(seed_text))
+        tag = f"{seed_text.find(seed_text[0])}:truth"
+        parts = tag.split(":")
+        interp = f"{left}:{parts[0]}:{parts[1]}"
+        copied = list(interp)[:3]
+        rebuilt = "".join(chr(ord(ch)) for ch in copied)
+        probe = 0
+        probe += int(left)
+        probe += int(float(str(len(parts))))
+        probe += int(parts[0]) + int(left)
+        probe += 5 if rebuilt == "".join(copied) else -5
+        hashed = fnv1a_hex(interp)
+        probe += hashed.find(hashed[-1])
+        probe += 7 if parts[1] == "truth" else -11
+        return probe
+
     def render_junk_records(self) -> list[str]:
         lines: list[str] = []
         for _ in range(self.junk_records):
@@ -778,6 +795,7 @@ class Obfuscator:
         mutate = self.name_factory.fresh("mutate")
         fold = self.name_factory.fresh("fold")
         guard = self.name_factory.fresh("guard")
+        audit = self.name_factory.fresh("audit")
         encoded = self.name_factory.fresh("encoded")
         seed_text = self.name_factory.fresh("seed")
         chars = self.name_factory.fresh("chars")
@@ -830,7 +848,9 @@ class Obfuscator:
         guard_variant = template // 4
         seed_text_value = hashlib.sha256((self.prefix + self.source).encode("utf-8")).hexdigest()[:18]
         expected = self.compute_feature_guard(seed_text_value, mod)
-        opaque_expected = expected % 17
+        audit_expected = self.compute_audit_guard(seed_text_value)
+        guard_expected = expected + audit_expected
+        opaque_expected = guard_expected % 17
         array_text = self.encode_string("array")
         truth_text = self.encode_string("truth")
         colon_text = self.encode_string(":")
@@ -1213,18 +1233,51 @@ class Obfuscator:
 
         prepare_alias_lines, prepare_entry = self.render_alias_chain(prepare, 0)
         fold_alias_lines, fold_entry = self.render_alias_chain(fold, 1)
+        audit_alias_lines, audit_entry = self.render_alias_chain(audit, 1)
         guard_alias_lines, guard_entry = self.render_alias_chain(guard, 0)
         main_alias_lines, main_entry = self.render_alias_chain(self.original_main_name, 0)
-        lines += [""] + prepare_alias_lines + fold_alias_lines + guard_alias_lines + main_alias_lines
+        audit_lines = [
+            "",
+            f"babuin {audit}({bundle})",
+            f"\tbanana {{{meta}, {values}}} = {bundle}",
+            f"\tbanana {{{left}, {right}, {tag}}} = {meta}",
+            f"\tbanana {parts} = split({tag}, {colon_text})",
+            f"\tbanana {text} = \"${{{left}}}:${{{parts}[0]}}:${{{parts}[1]}}\"",
+            f"\tbanana {pieces} = [piece swing {idx}, piece in split({text}, join([], \"\")) sniff {idx} < {self.obfuscate_int(3)}]",
+            f"\tbanana {rebuilt} = chr(ord({pieces}[0])) + chr(ord({pieces}[1])) + chr(ord({pieces}[2]))",
+            f"\tbanana {probe_acc} = {self.obfuscate_int(0)}; {probe_acc} = {probe_acc} + int({left}); {probe_acc} = {probe_acc} + int(float(string(length({parts}))))",
+            f"\tmatch [{parts}, [int({parts}[0]), length({pieces}), int({left})]]",
+            f"\t\tas [_, [{head}, _, {tail}]]",
+            f"\t\t\t{probe_acc} = {probe_acc} + {head} + {tail}",
+            f"\t\tshriek",
+            f"\t\t\t{probe_acc} = {probe_acc} + {self.obfuscate_int(0)}",
+            f"\tmatch {meta}",
+            f"\t\tas {meta_type}{{{left} = {left_text}, {right} = _, {tag} = _}} sniff {rebuilt} == join({pieces}, join([], \"\"))",
+            f"\t\t\t{probe_acc} = {probe_acc} + {self.obfuscate_int(5)}",
+            f"\t\tshriek",
+            f"\t\t\t{probe_acc} = {probe_acc} - {self.obfuscate_int(5)}",
+            f"\tbanana {hashed} = hash({text})",
+            f"\t{probe_acc} = {probe_acc} + find({hashed}, {hashed}[length({hashed}) - {self.obfuscate_int(1)}])",
+            f"\tsniff bool({parts}[{self.obfuscate_int(1)}])",
+            f"\t\t{probe_acc} = {probe_acc} + {self.obfuscate_int(7)}",
+            f"\tshriek",
+            f"\t\t{probe_acc} = {probe_acc} - {self.obfuscate_int(11)}",
+            f"\thoard {probe_acc}",
+        ]
+        lines += audit_lines + [""] + prepare_alias_lines + fold_alias_lines + audit_alias_lines + guard_alias_lines + main_alias_lines
 
-        guard_body = [f"\thoard {fold_entry}({prepare_entry}())"]
+        guard_body = [
+            f"\tbanana {bundle} = {prepare_entry}()",
+            f"\thoard {fold_entry}({bundle}) + {audit_entry}({bundle})",
+        ]
         if guard_variant == 1:
             guard_body = [
-                f"\tbanana {guard_probe} = ({fold_entry}({prepare_entry}()) % {self.obfuscate_int(17)})",
+                f"\tbanana {bundle} = {prepare_entry}()",
+                f"\tbanana {guard_probe} = (({fold_entry}({bundle}) + {audit_entry}({bundle})) % {self.obfuscate_int(17)})",
                 f"\tsniff {guard_probe} == {self.obfuscate_int(opaque_expected)}",
-                f"\t\thoard {fold_entry}({prepare_entry}())",
+                f"\t\thoard {fold_entry}({bundle}) + {audit_entry}({bundle})",
                 f"\tshriek",
-                f"\t\thoard {fold_entry}({prepare_entry}())",
+                f"\t\thoard {fold_entry}({bundle}) + {audit_entry}({bundle})",
             ]
 
         lines += [
@@ -1234,7 +1287,7 @@ class Obfuscator:
             "",
             "babuin main()",
             f"\tbanana {acc} = {guard_entry}()",
-            f"\tsniff {acc} == {self.obfuscate_int(expected)}",
+            f"\tsniff {acc} == {self.obfuscate_int(guard_expected)}",
             f"\t\thoard {main_entry}()",
             "\tshriek",
             f"\t\thoard {self.obfuscate_int(0)}",
