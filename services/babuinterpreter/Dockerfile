@@ -10,14 +10,18 @@ RUN apt-get update \
         socat \
     && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /var/lib/babuinterpreter
-RUN mkdir -p /service
+RUN useradd --create-home --home-dir /home/babuinterpreter --shell /usr/sbin/nologin babuinterpreter \
+    && mkdir -p /var/lib/babuinterpreter \
+    && mkdir -p /service \
+    && chown -R babuinterpreter:babuinterpreter /var/lib/babuinterpreter /service
 
 COPY babuinterpreter /service/babuinterpreter
 COPY entrypoint.py /service/entrypoint.py
+COPY start.sh /service/start.sh
 
-RUN chmod 0755 /service/babuinterpreter /service/entrypoint.py
+RUN chmod 0755 /service/babuinterpreter /service/entrypoint.py /service/start.sh \
+    && chown babuinterpreter:babuinterpreter /service/babuinterpreter /service/entrypoint.py /service/start.sh
 
 EXPOSE 31337
 
-CMD ["sh", "-c", "port=\"${BABUIN_SERVICE_PORT:-31337}\"; exec socat \"TCP-LISTEN:${port},reuseaddr,fork\" EXEC:/service/entrypoint.py,stderr"]
+CMD ["/service/start.sh"]
