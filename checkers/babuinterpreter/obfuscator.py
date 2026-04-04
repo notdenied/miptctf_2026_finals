@@ -1244,7 +1244,7 @@ class Obfuscator:
 
     def build(self) -> str:
         transformed = self.transform_source()
-        prelude = "\n".join([f"// obfuscated by scripts/obfuscator.py", ""])
+        prelude = ""
         junk_records = "\n".join(self.render_junk_records()).rstrip()
         junk_functions = "\n".join(self.render_junk_functions()).rstrip()
         wrapper = self.render_wrapper().rstrip()
