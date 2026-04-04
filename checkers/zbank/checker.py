@@ -89,17 +89,17 @@ class ZBankChecker(BaseChecker):
         if vuln == 1:
             self._put_accounts(sess, flag_id, flag)
         elif vuln == 2:
-            self._put_statements(sess, flag_id, flag)
+            self._put_statements(sess, flag_id, flag) #
         elif vuln == 3:
             self._put_support(sess, flag_id, flag)
         elif vuln == 4:
             self._put_fundraising(sess, flag_id, flag)
         elif vuln == 5:
-            self._put_rhythm(sess, flag_id, flag)
+            self._put_rhythm(sess, flag_id, flag) #
         elif vuln == 6:
-            self._put_deposits(sess, flag_id, flag)
+            self._put_deposits(sess, flag_id, flag) #
         elif vuln == 7:
-            self._put_charts(sess, flag_id, flag)
+            self._put_charts(sess, flag_id, flag) #
         else:
             self.cquit(Status.ERROR, "Invalid vuln", f"Unknown vuln: {vuln}")
 

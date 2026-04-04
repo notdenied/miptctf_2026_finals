@@ -1,9 +1,0 @@
-services:
-  pickme-house:
-    build: .
-    ports:
-      - "10000:5000"
-    volumes:
-      - ./storage:/app/web/storage
-    restart: unless-stopped
-

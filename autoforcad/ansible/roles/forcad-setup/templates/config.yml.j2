@@ -10,7 +10,7 @@ game:
   inflation: true
   mode: classic
   round_time: 60
-  start_time: 2026-04-05 10:00:00
+  start_time: 2026-04-04 22:30:00
   timezone: Europe/Moscow
   volga_attacks_mode: false
 storages:
@@ -39,13 +39,6 @@ tasks:
   name: jerknotes
   places: 1
   puts: 1
-- checker: s3vibe/checker.py
-  checker_timeout: 20
-  checker_type: pfr
-  gets: 1
-  name: s3vibe
-  places: 1
-  puts: 1
 - checker: manka/checker.py
   checker_timeout: 20
   checker_type: pfr
@@ -53,12 +46,26 @@ tasks:
   name: manka
   places: 1
   puts: 1
-- checker: pickme-house/checker.py
+- checker: babuinterpreter/checker.py
+  checker_timeout: 20
+  checker_type: pfr
+  gets: 1
+  name: babuinterpreter
+  places: 1
+  puts: 1
+- checker: zbank/checker.py
   checker_timeout: 20
   checker_type: pfr
   gets: 2
-  name: pickme-house
+  name: zbank
   places: 4
+  puts: 2
+- checker: resheto/checker.py
+  checker_timeout: 20
+  checker_type: pfr
+  gets: 2
+  name: resheto
+  places: 3
   puts: 2
 teams:
 {% for t in (teams_input | sort(attribute='id')) %}

@@ -140,7 +140,7 @@ class AnomalyController
         $db = Database::getConnection();
         $username = $db->quote(Session::getUsername());
 
-        // Base query: public anomalies OR owned by current user (using quoted username)
+        // Base query: public anomalies OR owned by current user
         $sql = "SELECT a.id, a.scp_id, a.object_class, a.title, a.description, a.containment_procedures,
                        a.min_clearance, a.is_private, a.created_by, a.created_at
                 FROM anomalies a

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SERVICES_DIR="../services"
+SRC_CHECKERS="../checkers"
 DEST_CHECKERS="ansible/roles/forcad-setup/files/checkers"
 
 # pt 0: pack services & checkers

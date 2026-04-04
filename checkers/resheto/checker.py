@@ -308,7 +308,7 @@ class ReshetoChecker(BaseChecker):
             "scp_id": anomaly["scp_id"],
             "flag": flag,
         })
-        self.cquit(Status.OK, str(anomaly["id"]), state)
+        self.cquit(Status.OK, f'anomaly_id:{str(anomaly["id"])}', state)
 
     def _put_report(self, sess, flag_id, flag):
         """Store flag in report content_markdown."""
@@ -342,7 +342,7 @@ class ReshetoChecker(BaseChecker):
             "report_uuid": report["uuid"],
             "flag": flag,
         })
-        self.cquit(Status.OK, report["uuid"], state)
+        self.cquit(Status.OK, f'report_uuid:{report["uuid"]}', state)
 
     def _put_research(self, sess, flag_id, flag):
         """Store flag in research task notes → carried to archive."""
@@ -397,7 +397,7 @@ class ReshetoChecker(BaseChecker):
             "anomaly_id": anomaly["id"],
             "flag": flag,
         })
-        self.cquit(Status.OK, research_uuid, state)
+        self.cquit(Status.OK, f'research_uuid:{research_uuid}', state)
 
     # ==================== GET ====================
 
