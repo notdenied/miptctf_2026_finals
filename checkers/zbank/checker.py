@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
 ForcAD checker for Z-Bank service.
-Flags are stored in 4 vulns; remaining features are checked for health.
+Flags are stored in 5 vulns; remaining features are checked for health.
 
 Vuln 1: Statements
 Vuln 2: Rhythm Social Network
 Vuln 3: Deposits
 Vuln 4: Charts
+Vuln 5: Fundraising
 
-Check (no flags): Accounts & Transactions, Support Chat, Fundraising
+Check (no flags): Accounts & Transactions, Support Chat
 """
 
 import json
@@ -24,7 +25,7 @@ from checklib import *
 
 
 class ZBankChecker(BaseChecker):
-    vulns = 4
+    vulns = 5
     timeout = 30
     uses_attack_data = True
 
@@ -80,9 +81,6 @@ class ZBankChecker(BaseChecker):
         # --- Check Support Chat ---
         self._check_support(sess)
 
-        # --- Check Fundraising ---
-        self._check_fundraising(sess, username, password)
-
         self.cquit(Status.OK)
 
     def _check_accounts(self, sess, username, password):
@@ -135,41 +133,6 @@ class ZBankChecker(BaseChecker):
         user_texts = [m["message"] for m in messages if not m["isBot"]]
         self.assert_in(msg, user_texts, "Support message not found on retrieval")
 
-    def _check_fundraising(self, sess, username, password):
-        """Verify fundraising create, view, and contribute work."""
-        accounts = self._get_accounts(sess)
-        # Need an account with enough balance (should have 50 left after _check_accounts transfer)
-        account_id = accounts[0]["id"]
-
-        title = "check_fund_" + self._rnd_str(6)
-        r = sess.post(f"{self.base_url}/api/fundraising", json={
-            "accountId": account_id,
-            "title": title,
-            "description": "Check fundraising",
-            "targetAmount": 1000
-        })
-        self.assert_eq(r.status_code, 200, "Create fundraising failed")
-        fundraising = r.json()
-        link_code = fundraising["linkCode"]
-
-        # View it
-        r = sess.get(f"{self.base_url}/api/fundraising/{link_code}/view")
-        self.assert_eq(r.status_code, 200, "View fundraising failed")
-        self.assert_eq(r.json()["title"], title, "Fundraising title mismatch")
-
-        # Second user contributes
-        sess2 = self.get_initialized_session()
-        username2, password2, _ = self._register(sess2)
-        self._login(sess2, username2, password2)
-
-        accounts2 = self._get_accounts(sess2)
-        from_account_id = accounts2[0]["id"]
-
-        r = sess2.post(f"{self.base_url}/api/fundraising/{link_code}/contribute", json={
-            "fromAccountId": from_account_id,
-            "amount": 25
-        })
-        self.assert_eq(r.status_code, 200, "Contribute failed")
 
     # ==================== PUT ====================
 
@@ -185,6 +148,8 @@ class ZBankChecker(BaseChecker):
             self._put_deposits(sess, flag_id, flag)
         elif vuln == 4:
             self._put_charts(sess, flag_id, flag)
+        elif vuln == 5:
+            self._put_fundraising(sess, flag_id, flag)
         else:
             self.cquit(Status.ERROR, "Invalid vuln", f"Unknown vuln: {vuln}")
 
@@ -230,7 +195,7 @@ class ZBankChecker(BaseChecker):
             "account_id": account_id,
             "flag": flag
         })
-        self.cquit(Status.OK, str(statement_id), state)
+        self.cquit(Status.OK, f'statement_id:{str(statement_id)}', state)
 
     def _put_rhythm(self, sess, flag_id, flag):
         # Create two users, make them friends, post private (FRIENDS) content
@@ -248,7 +213,7 @@ class ZBankChecker(BaseChecker):
         })
         self.assert_eq(r.status_code, 200, "Create private post failed")
         private_post_data = r.json()
-        private_post_id   = private_post_data["id"]
+        private_post_id = private_post_data["id"]
         private_post_uuid = private_post_data["postUuid"]
 
         # User1 creates a PROTECTED post
@@ -259,7 +224,7 @@ class ZBankChecker(BaseChecker):
         self.assert_eq(r.status_code, 200, "Create protected post failed")
         protected_post_data = r.json()
         protected_post_uuid = protected_post_data["postUuid"]
-        protected_post_key  = protected_post_data["accessKey"]
+        protected_post_key = protected_post_data["accessKey"]
         self.assert_neq(protected_post_key, "", "accessKey missing from PROTECTED post")
 
         # User1 creates a public post
@@ -301,7 +266,7 @@ class ZBankChecker(BaseChecker):
             "friendship_id":       friendship_id,
             "flag":                flag
         })
-        self.cquit(Status.OK, str(protected_post_uuid), state)
+        self.cquit(Status.OK, f'post_uuid:{str(protected_post_uuid)}', state)
 
     def _put_deposits(self, sess, flag_id, flag):
         username, password, _ = self._register(sess)
@@ -333,7 +298,7 @@ class ZBankChecker(BaseChecker):
             "account_id": account_id,
             "flag": flag
         })
-        self.cquit(Status.OK, str(deposit["id"]), state)
+        self.cquit(Status.OK, f'deposit_id:{str(deposit["id"])}', state)
 
     def _put_charts(self, sess, flag_id, flag):
         username, password, _ = self._register(sess)
@@ -388,7 +353,7 @@ class ZBankChecker(BaseChecker):
             "transfer_amount": transfer_amount,
             "flag": flag
         })
-        self.cquit(Status.OK, str(account_id), state)
+        self.cquit(Status.OK, f'chart_id:{str(chart_id)}', state)  # almost useless, but let it be
 
     # ==================== GET ====================
 
@@ -409,6 +374,8 @@ class ZBankChecker(BaseChecker):
             self._get_deposits_check(sess, state, flag)
         elif vuln == 4:
             self._get_charts_check(sess, state, flag)
+        elif vuln == 5:
+            self._get_fundraising_check(sess, state, flag)
         else:
             self.cquit(Status.ERROR, "Invalid vuln", f"Unknown vuln: {vuln}")
 
@@ -451,7 +418,7 @@ class ZBankChecker(BaseChecker):
 
         # Access the PROTECTED post by UUID without key — must be denied
         protected_uuid = state.get("protected_post_uuid")
-        protected_key  = state.get("protected_post_key")
+        protected_key = state.get("protected_post_key")
         if protected_uuid and protected_key:
             r = sess.get(f"{self.base_url}/api/rhythm/posts/{protected_uuid}")
             self.assert_eq(r.status_code, 403, "PROTECTED post should be inaccessible without key")
@@ -530,6 +497,68 @@ class ZBankChecker(BaseChecker):
         transfer_amount = state["transfer_amount"]
         self.assert_eq(float(chart["totalExpenses"]), float(transfer_amount), "Chart totalExpenses corrupted")
         self.assert_eq(int(chart["transactionCount"]), 1, "Chart transactionCount corrupted")
+
+        self.cquit(Status.OK)
+
+    def _put_fundraising(self, sess, flag_id, flag):
+        username, password, _ = self._register(sess)
+        self._login(sess, username, password)
+
+        accounts = self._get_accounts(sess)
+        account_id = accounts[0]["id"]
+
+        # Create fundraising with flag as title
+        r = sess.post(f"{self.base_url}/api/fundraising", json={
+            "accountId": account_id,
+            "title": flag,
+            "description": "Test fundraising",
+            "targetAmount": 1000
+        })
+        self.assert_eq(r.status_code, 200, "Create fundraising failed")
+        fundraising = r.json()
+        link_code = fundraising["linkCode"]
+
+        # Create second user and contribute
+        sess2 = self.get_initialized_session()
+        username2, password2, _ = self._register(sess2)
+        self._login(sess2, username2, password2)
+
+        accounts2 = self._get_accounts(sess2)
+        from_account_id = accounts2[0]["id"]
+
+        r = sess2.post(f"{self.base_url}/api/fundraising/{link_code}/contribute", json={
+            "fromAccountId": from_account_id,
+            "amount": 25
+        })
+        self.assert_eq(r.status_code, 200, "Contribute failed")
+
+        # Verify balance increased
+        r = sess.get(f"{self.base_url}/api/accounts/{account_id}")
+        self.assert_eq(r.status_code, 200, "Get account failed")
+        self.assert_eq(float(r.json()["balance"]), 125.0, "Balance should be 125 after donation")
+
+        state = json.dumps({
+            "username": username,
+            "password": password,
+            "link_code": link_code,
+            "account_id": account_id,
+            "flag": flag
+        })
+        self.cquit(Status.OK, f'link_code:{link_code}', state)
+
+    def _get_fundraising_check(self, sess, state, flag):
+        self._login(sess, state["username"], state["password"])
+
+        # Check fundraising still exists
+        r = sess.get(f"{self.base_url}/api/fundraising/{state['link_code']}/view")
+        self.assert_eq(r.status_code, 200, "Get fundraising failed")
+        fundraising = r.json()
+        self.assert_eq(fundraising["title"], flag, "Flag (fundraising title) corrupted")
+
+        # Check account balance (should be 125 after donation)
+        r = sess.get(f"{self.base_url}/api/accounts/{state['account_id']}")
+        self.assert_eq(r.status_code, 200, "Get account failed")
+        self.assert_eq(float(r.json()["balance"]), 125.0, "Account balance corrupted")
 
         self.cquit(Status.OK)
 

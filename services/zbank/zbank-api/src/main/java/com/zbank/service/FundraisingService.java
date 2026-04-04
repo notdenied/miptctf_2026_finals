@@ -8,8 +8,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.uuid.Generators;
+
 import java.math.BigDecimal;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +23,7 @@ public class FundraisingService {
     public Fundraising create(Account account, String title, String description, BigDecimal targetAmount) {
         Fundraising fundraising = Fundraising.builder()
                 .account(account)
-                .linkCode(UUID.randomUUID().toString().substring(0, 8))
+                .linkCode(Generators.timeBasedGenerator().generate().toString().substring(0, 8))
                 .title(title)
                 .description(description)
                 .targetAmount(targetAmount)
