@@ -1,5 +1,5 @@
-vpn-configs
-release
+vpn-configs/
+release/
 hosts
 services.tar
 roles/forcad-setup/files/checkers

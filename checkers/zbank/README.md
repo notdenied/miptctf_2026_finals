@@ -58,6 +58,6 @@ Cookie: JSESSIONID=FC3364EE42DF67FA0A1AE722085BF139
 Если такой объект есть, то он отфильтруется и мы получим 200, иначе -- получим сразу 404.
 
 5. Миша Соловьёв подсветил забавную строчку в нейрослопе:
-.linkCode(UUID.randomUUID().toString().substring(0, 8)) в services/zbank/zbank-api/src/main/java/com/zbank/service/FundraisingService.java
+   .linkCode(UUID.randomUUID().toString().substring(0, 8)) в services/zbank/zbank-api/src/main/java/com/zbank/service/FundraisingService.java
 
-Я решил оставить этот как интендед и заменить на uuid v1: теперь linkCode предсказуемый -> можем смотреть чужие 
+Я решил оставить этот как интендед и заменить на uuid v1: теперь linkCode предсказуемый -> можем смотреть чужие fundraising...
