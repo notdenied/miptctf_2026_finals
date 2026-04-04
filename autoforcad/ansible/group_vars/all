@@ -31,7 +31,7 @@ vuln_cfg_root: "./vpn-configs/vuln"
 teams_file: "./teams.yml"
 
 # Grafana configuration
-grafana_admin_password: "miptsosal123"
+grafana_admin_password: "81ktoc8qz5gj"
 
 # Connection retry configuration
 connection_retries: 20

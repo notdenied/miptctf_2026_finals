@@ -3,7 +3,7 @@ prometheus_user: "prometheus"
 
 # Auth
 prometheus_auth_user: "admin"
-prometheus_auth_password: "miptsosal123"
+prometheus_auth_password: "81ktoc8qz5gj"
 
 # Paths
 prometheus_config_dir: /etc/prometheus
