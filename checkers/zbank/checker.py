@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """
 ForcAD checker for Z-Bank service.
-Tests all 7 functionalities and verifies data integrity across runs.
+Flags are stored in 4 vulns; remaining features are checked for health.
 
-Vuln 1: Accounts & Transactions
-Vuln 2: Statements
-Vuln 3: Support Chat
-Vuln 4: Fundraising
-Vuln 5: Rhythm Social Network
-Vuln 6: Deposits
-Vuln 7: Charts
+Vuln 1: Statements
+Vuln 2: Rhythm Social Network
+Vuln 3: Deposits
+Vuln 4: Charts
+
+Check (no flags): Accounts & Transactions, Support Chat, Fundraising
 """
 
 import json
@@ -25,7 +24,7 @@ from checklib import *
 
 
 class ZBankChecker(BaseChecker):
-    vulns = 7
+    vulns = 4
     timeout = 30
     uses_attack_data = True
 
@@ -68,62 +67,43 @@ class ZBankChecker(BaseChecker):
     def check(self, *_args, **_kwargs):
         sess = self.get_initialized_session()
 
-        # Check service is alive
+        # --- Basic health: register + login ---
         try:
-            r = sess.post(f"{self.base_url}/api/auth/register", json={
-                "username": "healthcheck_" + self._rnd_str(8),
-                "password": self._rnd_str(16)
-            })
-            self.assert_eq(r.status_code, 200, "Service health check failed")
+            username, password, reg_data = self._register(sess)
         except requests.ConnectionError:
             self.cquit(Status.DOWN, "Connection refused", "Cannot connect to service")
+        self._login(sess, username, password)
+
+        # --- Check Accounts & Transactions ---
+        self._check_accounts(sess, username, password)
+
+        # --- Check Support Chat ---
+        self._check_support(sess)
+
+        # --- Check Fundraising ---
+        self._check_fundraising(sess, username, password)
 
         self.cquit(Status.OK)
 
-    # ==================== PUT ====================
-
-    def put(self, flag_id, flag, vuln):
-        sess = self.get_initialized_session()
-        vuln = int(vuln)
-
-        if vuln == 1:
-            self._put_accounts(sess, flag_id, flag)
-        elif vuln == 2:
-            self._put_statements(sess, flag_id, flag) #
-        elif vuln == 3:
-            self._put_support(sess, flag_id, flag)
-        elif vuln == 4:
-            self._put_fundraising(sess, flag_id, flag)
-        elif vuln == 5:
-            self._put_rhythm(sess, flag_id, flag) #
-        elif vuln == 6:
-            self._put_deposits(sess, flag_id, flag) #
-        elif vuln == 7:
-            self._put_charts(sess, flag_id, flag) #
-        else:
-            self.cquit(Status.ERROR, "Invalid vuln", f"Unknown vuln: {vuln}")
-
-    def _put_accounts(self, sess, flag_id, flag):
-        username, password, reg_data = self._register(sess)
-        self._login(sess, username, password)
-
-        # Check default account
+    def _check_accounts(self, sess, username, password):
+        """Verify accounts creation, default balance, and transfers work."""
         accounts = self._get_accounts(sess)
         self.assert_eq(len(accounts), 1, "Should have 1 default account")
         default_account = accounts[0]
         self.assert_eq(float(default_account["balance"]), 100.0, "Default balance should be 100")
 
-        # Create second account with flag as name
-        r = sess.post(f"{self.base_url}/api/accounts", json={"name": flag})
+        # Create second account
+        acc_name = "check_" + self._rnd_str(6)
+        r = sess.post(f"{self.base_url}/api/accounts", json={"name": acc_name})
         self.assert_eq(r.status_code, 200, "Create account failed")
         second_account = r.json()
 
-        # Transfer 50 rubles from default to new account
+        # Transfer
         r = sess.post(f"{self.base_url}/api/transactions", json={
             "fromAccountId": default_account["id"],
             "toAccountId": second_account["id"],
             "amount": 50,
-            "description": "Test transfer"
+            "description": "Check transfer"
         })
         self.assert_eq(r.status_code, 200, "Transfer failed")
 
@@ -133,14 +113,80 @@ class ZBankChecker(BaseChecker):
         self.assert_eq(balances[default_account["id"]], 50.0, "Default account should have 50 after transfer")
         self.assert_eq(balances[second_account["id"]], 50.0, "Second account should have 50 after transfer")
 
-        state = json.dumps({
-            "username": username,
-            "password": password,
-            "default_account_id": default_account["id"],
-            "second_account_id": second_account["id"],
-            "flag": flag
+    def _check_support(self, sess):
+        """Verify support chat message send/receive works."""
+        msg = "check_msg_" + self._rnd_str(8)
+        r = sess.post(f"{self.base_url}/api/support/messages", json={"message": msg})
+        self.assert_eq(r.status_code, 200, "Send support message failed")
+        messages = r.json()
+        self.assert_gte(len(messages), 2, "Should have user message and bot response")
+
+        user_msg = messages[0]
+        self.assert_eq(user_msg["message"], msg, "User message mismatch")
+        self.assert_eq(user_msg["isBot"], False, "First message should be from user")
+
+        bot_msg = messages[1]
+        self.assert_eq(bot_msg["isBot"], True, "Second message should be from bot")
+
+        # Verify retrieval
+        r = sess.get(f"{self.base_url}/api/support/messages")
+        self.assert_eq(r.status_code, 200, "Get support messages failed")
+        messages = r.json()
+        user_texts = [m["message"] for m in messages if not m["isBot"]]
+        self.assert_in(msg, user_texts, "Support message not found on retrieval")
+
+    def _check_fundraising(self, sess, username, password):
+        """Verify fundraising create, view, and contribute work."""
+        accounts = self._get_accounts(sess)
+        # Need an account with enough balance (should have 50 left after _check_accounts transfer)
+        account_id = accounts[0]["id"]
+
+        title = "check_fund_" + self._rnd_str(6)
+        r = sess.post(f"{self.base_url}/api/fundraising", json={
+            "accountId": account_id,
+            "title": title,
+            "description": "Check fundraising",
+            "targetAmount": 1000
         })
-        self.cquit(Status.OK, str(second_account["id"]), state)
+        self.assert_eq(r.status_code, 200, "Create fundraising failed")
+        fundraising = r.json()
+        link_code = fundraising["linkCode"]
+
+        # View it
+        r = sess.get(f"{self.base_url}/api/fundraising/{link_code}/view")
+        self.assert_eq(r.status_code, 200, "View fundraising failed")
+        self.assert_eq(r.json()["title"], title, "Fundraising title mismatch")
+
+        # Second user contributes
+        sess2 = self.get_initialized_session()
+        username2, password2, _ = self._register(sess2)
+        self._login(sess2, username2, password2)
+
+        accounts2 = self._get_accounts(sess2)
+        from_account_id = accounts2[0]["id"]
+
+        r = sess2.post(f"{self.base_url}/api/fundraising/{link_code}/contribute", json={
+            "fromAccountId": from_account_id,
+            "amount": 25
+        })
+        self.assert_eq(r.status_code, 200, "Contribute failed")
+
+    # ==================== PUT ====================
+
+    def put(self, flag_id, flag, vuln):
+        sess = self.get_initialized_session()
+        vuln = int(vuln)
+
+        if vuln == 1:
+            self._put_statements(sess, flag_id, flag)
+        elif vuln == 2:
+            self._put_rhythm(sess, flag_id, flag)
+        elif vuln == 3:
+            self._put_deposits(sess, flag_id, flag)
+        elif vuln == 4:
+            self._put_charts(sess, flag_id, flag)
+        else:
+            self.cquit(Status.ERROR, "Invalid vuln", f"Unknown vuln: {vuln}")
 
     def _put_statements(self, sess, flag_id, flag):
         username, password, _ = self._register(sess)
@@ -185,78 +231,6 @@ class ZBankChecker(BaseChecker):
             "flag": flag
         })
         self.cquit(Status.OK, str(statement_id), state)
-
-    def _put_support(self, sess, flag_id, flag):
-        username, password, _ = self._register(sess)
-        self._login(sess, username, password)
-
-        # Send message with flag
-        r = sess.post(f"{self.base_url}/api/support/messages", json={"message": flag})
-        self.assert_eq(r.status_code, 200, "Send support message failed")
-        messages = r.json()
-        self.assert_gte(len(messages), 2, "Should have user message and bot response")
-
-        # Verify user message
-        user_msg = messages[0]
-        self.assert_eq(user_msg["message"], flag, "User message mismatch")
-        self.assert_eq(user_msg["isBot"], False, "First message should be from user")
-
-        # Verify bot response
-        bot_msg = messages[1]
-        self.assert_eq(bot_msg["isBot"], True, "Second message should be from bot")
-
-        state = json.dumps({
-            "username": username,
-            "password": password,
-            "flag": flag
-        })
-        self.cquit(Status.OK, username, state)
-
-    def _put_fundraising(self, sess, flag_id, flag):
-        username, password, _ = self._register(sess)
-        self._login(sess, username, password)
-
-        accounts = self._get_accounts(sess)
-        account_id = accounts[0]["id"]
-
-        # Create fundraising with flag as title
-        r = sess.post(f"{self.base_url}/api/fundraising", json={
-            "accountId": account_id,
-            "title": flag,
-            "description": "Test fundraising",
-            "targetAmount": 1000
-        })
-        self.assert_eq(r.status_code, 200, "Create fundraising failed")
-        fundraising = r.json()
-        link_code = fundraising["linkCode"]
-
-        # Create second user and contribute
-        sess2 = self.get_initialized_session()
-        username2, password2, _ = self._register(sess2)
-        self._login(sess2, username2, password2)
-
-        accounts2 = self._get_accounts(sess2)
-        from_account_id = accounts2[0]["id"]
-
-        r = sess2.post(f"{self.base_url}/api/fundraising/{link_code}/contribute", json={
-            "fromAccountId": from_account_id,
-            "amount": 25
-        })
-        self.assert_eq(r.status_code, 200, "Contribute failed")
-
-        # Verify balance increased
-        r = sess.get(f"{self.base_url}/api/accounts/{account_id}")
-        self.assert_eq(r.status_code, 200, "Get account failed")
-        self.assert_eq(float(r.json()["balance"]), 125.0, "Balance should be 125 after donation")
-
-        state = json.dumps({
-            "username": username,
-            "password": password,
-            "link_code": link_code,
-            "account_id": account_id,
-            "flag": flag
-        })
-        self.cquit(Status.OK, username, state)
 
     def _put_rhythm(self, sess, flag_id, flag):
         # Create two users, make them friends, post private (FRIENDS) content
@@ -428,38 +402,15 @@ class ZBankChecker(BaseChecker):
             self.cquit(Status.CORRUPT, "Invalid flag_id", f"Cannot parse flag_id: {flag_id}")
 
         if vuln == 1:
-            self._get_accounts_check(sess, state, flag)
-        elif vuln == 2:
             self._get_statements_check(sess, state, flag)
-        elif vuln == 3:
-            self._get_support_check(sess, state, flag)
-        elif vuln == 4:
-            self._get_fundraising_check(sess, state, flag)
-        elif vuln == 5:
+        elif vuln == 2:
             self._get_rhythm_check(sess, state, flag)
-        elif vuln == 6:
+        elif vuln == 3:
             self._get_deposits_check(sess, state, flag)
-        elif vuln == 7:
+        elif vuln == 4:
             self._get_charts_check(sess, state, flag)
         else:
             self.cquit(Status.ERROR, "Invalid vuln", f"Unknown vuln: {vuln}")
-
-    def _get_accounts_check(self, sess, state, flag):
-        self._login(sess, state["username"], state["password"])
-
-        # Check accounts exist and balances are correct
-        accounts = self._get_accounts(sess)
-        self.assert_eq(len(accounts), 2, "Should have 2 accounts")
-
-        balances = {a["id"]: float(a["balance"]) for a in accounts}
-        self.assert_eq(balances[state["default_account_id"]], 50.0, "Default account balance corrupted")
-        self.assert_eq(balances[state["second_account_id"]], 50.0, "Second account balance corrupted")
-
-        # Check flag (account name)
-        names = {a["id"]: a["name"] for a in accounts}
-        self.assert_eq(names[state["second_account_id"]], flag, "Flag (account name) corrupted")
-
-        self.cquit(Status.OK)
 
     def _get_statements_check(self, sess, state, flag):
         self._login(sess, state["username"], state["password"])
@@ -478,37 +429,6 @@ class ZBankChecker(BaseChecker):
                          params={"s3Key": s3_key})
             self.assert_eq(r.status_code, 200, "Download statement by s3Key failed")
             self.assert_in(flag, r.text, "Flag not found in statement")
-
-        self.cquit(Status.OK)
-
-    def _get_support_check(self, sess, state, flag):
-        self._login(sess, state["username"], state["password"])
-
-        r = sess.get(f"{self.base_url}/api/support/messages")
-        self.assert_eq(r.status_code, 200, "Get support messages failed")
-        messages = r.json()
-        self.assert_gte(len(messages), 2, "Should have at least 2 messages")
-
-        # Find user message with flag
-        user_messages = [m for m in messages if not m["isBot"]]
-        user_texts = [m["message"] for m in user_messages]
-        self.assert_in(flag, user_texts, "Flag not found in support messages")
-
-        self.cquit(Status.OK)
-
-    def _get_fundraising_check(self, sess, state, flag):
-        self._login(sess, state["username"], state["password"])
-
-        # Check fundraising still exists
-        r = sess.get(f"{self.base_url}/api/fundraising/{state['link_code']}/view")
-        self.assert_eq(r.status_code, 200, "Get fundraising failed")
-        fundraising = r.json()
-        self.assert_eq(fundraising["title"], flag, "Flag (fundraising title) corrupted")
-
-        # Check account balance (should be 125 after donation)
-        r = sess.get(f"{self.base_url}/api/accounts/{state['account_id']}")
-        self.assert_eq(r.status_code, 200, "Get account failed")
-        self.assert_eq(float(r.json()["balance"]), 125.0, "Account balance corrupted")
 
         self.cquit(Status.OK)
 
