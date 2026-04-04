@@ -1,0 +1,13 @@
+services:
+  babuinterpreter:
+    build:
+      context: ..
+      dockerfile: service/Dockerfile
+    image: babuinterpreter-service:local
+    ports:
+      - "31337:31337"
+    environment:
+      BABUIN_SERVICE_PORT: "31337"
+      BABUIN_STORAGE_PATH: /var/lib/babuinterpreter/storage.sqlite
+    volumes:
+      - ./data:/var/lib/babuinterpreter

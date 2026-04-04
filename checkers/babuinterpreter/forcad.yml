@@ -1,0 +1,45 @@
+admin:
+  password: 68331b5f576344d1
+  username: forcad
+game:
+  checkers_path: /checkers/
+  default_score: 2500.0
+  env_path: ''
+  flag_lifetime: 5
+  game_hardness: 10.0
+  inflation: true
+  mode: classic
+  round_time: 60
+  start_time: 2026-04-04 06:40:00
+  timezone: Europe/Moscow
+  volga_attacks_mode: false
+storages:
+  db:
+    dbname: forcad
+    host: postgres
+    password: 68331b5f576344d1
+    port: 5432
+    user: forcad
+  rabbitmq:
+    host: rabbitmq
+    password: 68331b5f576344d1
+    port: 5672
+    user: forcad
+    vhost: forcad
+  redis:
+    db: 0
+    host: redis
+    password: 68331b5f576344d1
+    port: 6379
+tasks:
+- checker: babuinterpretator/checker.py
+  checker_timeout: 20
+  checker_type: pfr
+  gets: 1
+  name: babuinterpretator
+  places: 1
+  puts: 1
+teams:
+- highlighted: false
+  ip: 127.0.0.1
+  name: Test Team
