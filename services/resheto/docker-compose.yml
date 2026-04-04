@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: resheto
+      POSTGRES_USER: resheto
+      POSTGRES_PASSWORD: resheto
+    ports:
+      - 5432:5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resheto"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  php:
+    build: ./php
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_NAME: resheto
+      DB_USER: resheto
+      DB_PASS: resheto
+      REDIS_HOST: redis
+    volumes:
+      - pdf_storage:/var/www/html/storage/pdfs
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile
+    ports:
+      - "8888:8888"
+    depends_on:
+      - php
+    restart: unless-stopped
+
+  worker:
+    build: ./worker
+    depends_on:
+      - php
+      - redis
+    environment:
+      REDIS_HOST: redis
+      PHP_INTERNAL_URL: "http://php:8000"
+    ports:
+      - 6379:6379
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  pdf_storage:

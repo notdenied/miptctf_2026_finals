@@ -2,3 +2,4 @@ checklib
 requests
 pwntools
 beautifulsoup4
+pypdf

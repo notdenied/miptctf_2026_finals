@@ -6,7 +6,8 @@ home: /home/ubuntu/
 
 # count options
 team_count: 10
-players_count: 5
+# 5 + 1 for servicebox / sploitbox
+players_count: 6
 client_base_dir: "/etc/wireguard/client"
 server_parts_dir: "/etc/wireguard/server"
 wg_dir: "/etc/wireguard"

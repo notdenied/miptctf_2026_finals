@@ -1,0 +1,13 @@
+{
+    "name": "resheto/scp-containment",
+    "description": "SCP Foundation Containment Management System",
+    "require": {
+        "php": "^8.3",
+        "mpdf/mpdf": "^8.2.6",
+        "erusev/parsedown": "^1.7"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}
