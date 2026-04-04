@@ -78,6 +78,11 @@ public class StatementService {
                 .orElseThrow(() -> new IllegalArgumentException("Statement not found"));
     }
 
+    /** Returns all statements for a given account, newest first. */
+    public List<Statement> getByAccountId(Long accountId) {
+        return statementRepository.findByAccountIdOrderByCreatedAtDesc(accountId);
+    }
+
     /** Returns a statement by its s3Key; throws if not found. */
     public Statement getByS3Key(String s3Key) {
         return statementRepository.findByS3Key(s3Key)
@@ -123,7 +128,8 @@ public class StatementService {
      * ordered by creation time (oldest first).
      */
     public Optional<Statement> getNextPending() {
-        return statementRepository.findNextPending(MAX_ATTEMPTS);
+        return statementRepository.findFirstByStatusInAndAttemptsLessThanOrderByCreatedAtAsc(
+                List.of("PENDING", "PROCESSING"), MAX_ATTEMPTS);
     }
 
     /**

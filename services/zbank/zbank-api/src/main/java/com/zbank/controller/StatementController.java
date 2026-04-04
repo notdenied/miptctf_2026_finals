@@ -15,6 +15,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.InputStream;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -25,6 +27,29 @@ public class StatementController {
     private final StatementService statementService;
     private final AccountService accountService;
     private final UserRepository userRepository;
+
+    /** Lists all statements for the current user's accounts, newest first. */
+    @GetMapping
+    public ResponseEntity<?> listStatements() {
+        User user = getCurrentUser();
+        List<Account> accounts = accountService.getUserAccounts(user.getId());
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+        for (Account account : accounts) {
+            List<Statement> stmts = statementService.getByAccountId(account.getId());
+            for (Statement s : stmts) {
+                Map<String, Object> map = new LinkedHashMap<>();
+                map.put("id", s.getId());
+                map.put("status", s.getStatus());
+                map.put("format", s.getFormat());
+                map.put("s3Key", s.getS3Key() != null ? s.getS3Key() : "");
+                map.put("accountId", account.getId());
+                map.put("accountName", account.getName());
+                map.put("requestedAt", s.getCreatedAt() != null ? s.getCreatedAt().toString() : "");
+                result.add(map);
+            }
+        }
+        return ResponseEntity.ok(result);
+    }
 
     /** Creates a new statement job for the given account and format (csv/json/txt). Returns statement id and initial status. */
     @PostMapping

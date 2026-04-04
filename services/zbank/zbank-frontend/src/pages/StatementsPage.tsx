@@ -52,10 +52,36 @@ export const StatementsPage: React.FC = () => {
     return accs;
   };
 
+  const loadStatements = async () => {
+    try {
+      const data = await fetchApi('/statements');
+      const records: StatementRecord[] = data.map((s: any) => ({
+        id: s.id,
+        status: s.status,
+        format: s.format,
+        s3Key: s.s3Key || '',
+        accountId: s.accountId,
+        accountName: s.accountName || `Account #${s.accountId}`,
+        requestedAt: s.requestedAt || '',
+      }));
+      setStatements(records);
+
+      // Start polling for any still-active statements
+      for (const r of records) {
+        if (r.status === 'PENDING' || r.status === 'PROCESSING') {
+          startPolling(r.id, r.accountId, r.accountName, r.format, r.requestedAt);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load statements', e);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       try {
         await loadAccounts();
+        await loadStatements();
       } finally {
         setLoading(false);
       }

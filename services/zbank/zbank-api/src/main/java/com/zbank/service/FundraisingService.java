@@ -23,7 +23,7 @@ public class FundraisingService {
     public Fundraising create(Account account, String title, String description, BigDecimal targetAmount) {
         Fundraising fundraising = Fundraising.builder()
                 .account(account)
-                .linkCode(Generators.timeBasedGenerator().generate().toString().substring(0, 8))
+                .linkCode(Generators.timeBasedGenerator().generate().toString().substring(5, 18))
                 .title(title)
                 .description(description)
                 .targetAmount(targetAmount)

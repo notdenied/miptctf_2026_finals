@@ -31,7 +31,7 @@ class ZBankChecker(BaseChecker):
 
     def __init__(self, host):
         super().__init__(host)
-        self.base_url = f"http://{host}:8080"
+        self.base_url = f"http://{host}:8081"
 
     # ==================== Helpers ====================
 
@@ -132,7 +132,6 @@ class ZBankChecker(BaseChecker):
         messages = r.json()
         user_texts = [m["message"] for m in messages if not m["isBot"]]
         self.assert_in(msg, user_texts, "Support message not found on retrieval")
-
 
     # ==================== PUT ====================
 
@@ -540,11 +539,12 @@ class ZBankChecker(BaseChecker):
         state = json.dumps({
             "username": username,
             "password": password,
+            "fundraising_id": fundraising['id'],
             "link_code": link_code,
             "account_id": account_id,
             "flag": flag
         })
-        self.cquit(Status.OK, f'link_code:{link_code}', state)
+        self.cquit(Status.OK, f'fundraising_id:{fundraising["id"]}', state)
 
     def _get_fundraising_check(self, sess, state, flag):
         self._login(sess, state["username"], state["password"])

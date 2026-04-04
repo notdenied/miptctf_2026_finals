@@ -47,13 +47,32 @@ function VisibilityBadge({ v }: { v: string }) {
   );
 }
 
+function copyToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text: string) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
+
 function PostCard({ post }: { post: Post }) {
   const [copied, setCopied] = useState(false);
 
   const copyLink = () => {
     const base = `${window.location.origin}/rhythm/${post.postUuid}`;
     const url  = post.accessKey ? `${base}?key=${post.accessKey}` : base;
-    navigator.clipboard.writeText(url);
+    copyToClipboard(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -285,7 +304,7 @@ export const RhythmPage: React.FC = () => {
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                   <button
-                    onClick={() => { navigator.clipboard.writeText(newPostKey); }}
+                    onClick={() => { copyToClipboard(newPostKey); }}
                     className="btn btn-primary"
                     style={{ fontSize: '0.8rem', padding: '6px 12px' }}
                   >Copy</button>
