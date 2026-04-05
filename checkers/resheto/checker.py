@@ -245,7 +245,7 @@ class ReshetoChecker(BaseChecker):
         # ── 8. Research: submit + list ──────────────────────────────────
         r = sess.post(f"{self.base_url}/api/research", json={
             "anomaly_id": pub_anomaly["id"],
-            "notes": f"Check research pipeline {self._rnd_str(8)}",
+            "notes": f"Check research pipeline {self._rnd_str(8)}; more info: https://www.youtube.com/watch?v=dQw4w9WgXcQ",
         })
         self.assert_eq(r.status_code, 200, "Submit research failed")
         research = r.json()
