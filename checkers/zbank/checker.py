@@ -205,9 +205,9 @@ class ZBankChecker(BaseChecker):
         username2, password2, _ = self._register(sess2)
         self._login(sess2, username2, password2)
 
-        # User1 creates a FRIENDS-only post with the flag
+        # User1 creates a FRIENDS-only post
         r = sess.post(f"{self.base_url}/api/rhythm/posts", json={
-            "content": flag,
+            "content": "Private post " + self._rnd_str(5),
             "isPrivate": True
         })
         self.assert_eq(r.status_code, 200, "Create private post failed")
@@ -217,7 +217,7 @@ class ZBankChecker(BaseChecker):
 
         # User1 creates a PROTECTED post
         r = sess.post(f"{self.base_url}/api/rhythm/posts", json={
-            "content": "Protected post " + self._rnd_str(5),
+            "content": "Protected post " + self._rnd_str(5) + ' ' + flag,  # блять
             "visibility": "PROTECTED"
         })
         self.assert_eq(r.status_code, 200, "Create protected post failed")
@@ -406,7 +406,7 @@ class ZBankChecker(BaseChecker):
         self.assert_eq(r.status_code, 200, "Get user posts failed")
         posts = r.json()
         post_contents = [p["content"] for p in posts]
-        self.assert_in(flag, post_contents, "Flag (private post) not visible to friend")
+        self.assert_gte(len(post_contents), 1, "User should have at least one post")
 
         # Access the FRIENDS post by UUID (user2 is a friend — should succeed)
         private_uuid = state.get("private_post_uuid")
@@ -422,17 +422,18 @@ class ZBankChecker(BaseChecker):
             r = sess.get(f"{self.base_url}/api/rhythm/posts/{protected_uuid}")
             self.assert_eq(r.status_code, 403, "PROTECTED post should be inaccessible without key")
 
-            # With correct key — must succeed
+            # With correct key — must succeed and contain flag
             r = sess.get(f"{self.base_url}/api/rhythm/posts/{protected_uuid}",
                          params={"key": protected_key})
             self.assert_eq(r.status_code, 200, "PROTECTED post should be accessible with correct key")
+            self.assert_in(flag, r.json()["content"], "Flag content mismatch in PROTECTED post")
 
-        # Search for the flag by content prefix (user2 is a friend, so FRIENDS posts appear)
+        # Search for something non-flag (user2 is a friend, so they should see something)
         r = sess.post(f"{self.base_url}/api/rhythm/posts/search",
-                      json={"content": flag[:6]})
+                      json={"content": "Private"})
         self.assert_eq(r.status_code, 200, "Search posts failed")
         search_contents = [p["content"] for p in r.json()]
-        self.assert_in(flag, search_contents, "Flag not found in search results (friend should see it)")
+        self.assert_gte(len(search_contents), 1, "Should find at least something via search")
 
         # Search by visibility=FRIENDS — result set must be non-empty
         r = sess.post(f"{self.base_url}/api/rhythm/posts/search",
