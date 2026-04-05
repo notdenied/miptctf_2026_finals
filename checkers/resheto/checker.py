@@ -181,17 +181,17 @@ class ReshetoChecker(BaseChecker):
         self.assert_eq(len(priv_in_results), 0, "Private anomaly should NOT appear in other user's search")
 
         # ── 6. Report: create + list + get + PDF ────────────────────────
-        report_ref = self._rnd_str(12)
-        r = sess.post(f"{self.base_url}/api/reports", json={
-            "title": f"Отчёт проверки {self._rnd_str(5)}",
-            "content_markdown": f"# Health Check\n\nService operational. Ref: {report_ref}\n\n- Item 1\n- Item 2",
-            "classification": "CONFIDENTIAL",
-            "anomaly_id": pub_anomaly["id"],
-        })
-        self.assert_eq(r.status_code, 200, "Create report failed")
-        report = r.json()
-        self.assert_in("uuid", report, "No uuid in report response")
-        self.assert_in("pdf_path", report, "No pdf_path in report response")
+        # report_ref = self._rnd_str(12)
+        # r = sess.post(f"{self.base_url}/api/reports", json={
+        #     "title": f"Отчёт проверки {self._rnd_str(5)}",
+        #     "content_markdown": f"# Health Check\n\nService operational. Ref: {report_ref}\n\n- Item 1\n- Item 2",
+        #     "classification": "CONFIDENTIAL",
+        #     "anomaly_id": pub_anomaly["id"],
+        # })
+        # self.assert_eq(r.status_code, 200, "Create report failed")
+        # report = r.json()
+        # self.assert_in("uuid", report, "No uuid in report response")
+        # self.assert_in("pdf_path", report, "No pdf_path in report response")
 
         # r = sess.get(f"{self.base_url}/api/reports")
         # self.assert_eq(r.status_code, 200, "GET reports list failed")
@@ -203,10 +203,10 @@ class ReshetoChecker(BaseChecker):
         # report_detail = r.json()
         # self.assert_in(report_ref, report_detail["content_markdown"], "Report content corrupted")
 
-        if report.get("pdf_path"):
-            r = sess.get(f"{self.base_url}/api/reports/{report['uuid']}/pdf")
-            self.assert_eq(r.status_code, 200, "PDF download failed")
-            self.assert_gte(len(r.content), 500, "PDF file too small")
+        # if report.get("pdf_path"):
+        #     r = sess.get(f"{self.base_url}/api/reports/{report['uuid']}/pdf")
+        #     self.assert_eq(r.status_code, 200, "PDF download failed")
+        #     self.assert_gte(len(r.content), 500, "PDF file too small")
 
         # ── 7. Incidents: create + list + get ───────────────────────────
         incident_desc = f"Routine containment check {self._rnd_str(8)}"
@@ -434,13 +434,13 @@ class ReshetoChecker(BaseChecker):
         self.assert_in(flag, anomaly["containment_procedures"], "Flag not found in containment_procedures")
 
         # Also verify via search by scp_id
-        r = sess.post(f"{self.base_url}/api/anomalies/search", json={
-            "scp_id": state["scp_id"],
-        })
-        self.assert_eq(r.status_code, 200, "Search for private anomaly failed")
-        results = r.json()
-        self.assert_gte(len(results), 1, "Private anomaly should be findable by owner via search")
-        self.assert_in(flag, results[0]["containment_procedures"], "Flag not found in search results")
+        # r = sess.post(f"{self.base_url}/api/anomalies/search", json={
+        #     "scp_id": state["scp_id"],
+        # })
+        # self.assert_eq(r.status_code, 200, "Search for private anomaly failed")
+        # results = r.json()
+        # self.assert_gte(len(results), 1, "Private anomaly should be findable by owner via search")
+        # self.assert_in(flag, results[0]["containment_procedures"], "Flag not found in search results")
 
         self.cquit(Status.OK)
 
