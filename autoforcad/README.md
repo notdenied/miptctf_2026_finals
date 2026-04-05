@@ -28,6 +28,8 @@ python3 control.py print_tokens
 
 для большей надежности в композе надо бы накинуть больше max_connections на постгрю.
 если нужно изменить `config.yml`
+
+## КОМАНДУ RESET НЕ ВЫПОЛНЯТЬ, ОНА ВСЁ СНОСИТ
 ```bash
 python3 control.py reset
 python3 control.py setup

@@ -26,7 +26,7 @@ from checklib import *
 
 class ZBankChecker(BaseChecker):
     vulns = 5
-    timeout = 30
+    timeout = 45
     uses_attack_data = True
 
     def __init__(self, host):

@@ -20,7 +20,7 @@ from checklib import *
 
 class ReshetoChecker(BaseChecker):
     vulns = 3
-    timeout = 30
+    timeout = 45
     uses_attack_data = True
 
     def __init__(self, host):
