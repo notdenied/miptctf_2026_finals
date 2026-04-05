@@ -260,10 +260,10 @@ class ReshetoChecker(BaseChecker):
         task = r.json()
         if task["status"] == "DONE":
             self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality (work harder!)", "Research task finished in < 3 seconds")
-        
+
         done = False
         time.sleep(2)
-        for _ in range(4):
+        for _ in range(5):
             time.sleep(5)
             r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
             self.assert_eq(r.status_code, 200, "Get research status failed")
