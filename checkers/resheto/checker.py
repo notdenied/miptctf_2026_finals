@@ -370,17 +370,17 @@ class ReshetoChecker(BaseChecker):
         research_uuid = research["uuid"]
 
         # Ensure research is not too fast
-        time.sleep(2)
+        time.sleep(1)
         r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
-        self.assert_eq(r.status_code, 200, "Get research status failed after 2s")
+        self.assert_eq(r.status_code, 200, "Get research status failed after 1s")
         task = r.json()
         if task["status"] == "DONE":
-            self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality", "Research task finished in < 2 seconds")
+            self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality", "Research task finished in < 1 second")
 
         # Wait for worker to process
         done = False
         time.sleep(10)
-        for _ in range(5):
+        for _ in range(3):
             r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
             self.assert_eq(r.status_code, 200, "Get research status failed")
             task = r.json()
