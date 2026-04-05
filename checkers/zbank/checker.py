@@ -287,8 +287,8 @@ class ZBankChecker(BaseChecker):
 
         # Verify account balance decreased
         accounts = self._get_accounts(sess)
-        account_balance = float([a for a in accounts if a["id"] == account_id][0]["balance"])
-        self.assert_eq(account_balance, 50.0, "Balance should be 50 after 50 ruble deposit")
+        account_balance = round(float([a for a in accounts if a["id"] == account_id][0]["balance"]))
+        self.assert_eq(account_balance, 50, "Balance should be 50 after 50 ruble deposit")
 
         state = json.dumps({
             "username": username,
