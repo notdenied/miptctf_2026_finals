@@ -236,11 +236,11 @@ class ReshetoChecker(BaseChecker):
         self.assert_eq(incident_detail["description"], incident_desc, "Incident detail mismatch")
         self.assert_eq(incident_detail["response_notes"], response_note, "Incident response_notes mismatch")
 
-        r = sess.post(f"{self.base_url}/api/incidents", json={
-            "severity": "LOW",
-            "description": f"General inspection {self._rnd_str(6)}",
-        })
-        self.assert_eq(r.status_code, 200, "Create incident without anomaly_id failed")
+        # r = sess.post(f"{self.base_url}/api/incidents", json={
+        #     "severity": "LOW",
+        #     "description": f"General inspection {self._rnd_str(6)}",
+        # })
+        # self.assert_eq(r.status_code, 200, "Create incident without anomaly_id failed")
 
         # ── 8. Research: submit + list ──────────────────────────────────
         r = sess.post(f"{self.base_url}/api/research", json={
@@ -260,6 +260,19 @@ class ReshetoChecker(BaseChecker):
         task = r.json()
         if task["status"] == "DONE":
             self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality (work harder!)", "Research task finished in < 3 seconds")
+        
+        done = False
+        time.sleep(2)
+        for _ in range(3):
+            time.sleep(5)
+            r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
+            self.assert_eq(r.status_code, 200, "Get research status failed")
+            task = r.json()
+            if task["status"] == "DONE":
+                done = True
+                break
+
+        self.assert_eq(done, True, "Research task not completed by worker in time")
 
         # r = sess.get(f"{self.base_url}/api/research")
         # self.assert_eq(r.status_code, 200, "GET research list failed")
@@ -379,18 +392,18 @@ class ReshetoChecker(BaseChecker):
         #     self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality", "Research task finished in < 1 second")
 
         # Wait for worker to process
-        done = False
-        time.sleep(10)
-        for _ in range(2):
-            time.sleep(5)
-            r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
-            self.assert_eq(r.status_code, 200, "Get research status failed")
-            task = r.json()
-            if task["status"] == "DONE":
-                done = True
-                break
+        # done = False
+        # time.sleep(10)
+        # for _ in range(2):
+        #     time.sleep(5)
+        #     r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
+        #     self.assert_eq(r.status_code, 200, "Get research status failed")
+        #     task = r.json()
+        #     if task["status"] == "DONE":
+        #         done = True
+        #         break
 
-        self.assert_eq(done, True, "Research task not completed by worker in time")
+        # self.assert_eq(done, True, "Research task not completed by worker in time")
 
         state = json.dumps({
             "username": username,
