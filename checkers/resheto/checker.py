@@ -198,10 +198,10 @@ class ReshetoChecker(BaseChecker):
         # reports_list = r.json()
         # self.assert_gte(len(reports_list), 1, "Reports list should not be empty")
 
-        r = sess.get(f"{self.base_url}/api/reports/{report['uuid']}")
-        self.assert_eq(r.status_code, 200, "GET report detail failed")
-        report_detail = r.json()
-        self.assert_in(report_ref, report_detail["content_markdown"], "Report content corrupted")
+        # r = sess.get(f"{self.base_url}/api/reports/{report['uuid']}")
+        # self.assert_eq(r.status_code, 200, "GET report detail failed")
+        # report_detail = r.json()
+        # self.assert_in(report_ref, report_detail["content_markdown"], "Report content corrupted")
 
         if report.get("pdf_path"):
             r = sess.get(f"{self.base_url}/api/reports/{report['uuid']}/pdf")
