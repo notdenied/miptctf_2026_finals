@@ -414,7 +414,7 @@ class ZBankChecker(BaseChecker):
         if private_uuid:
             r = sess.get(f"{self.base_url}/api/rhythm/posts/{private_uuid}")
             self.assert_eq(r.status_code, 200, "Get FRIENDS post by UUID failed for friend")
-            self.assert_eq(r.json()["content"], flag, "Flag content mismatch in UUID post")
+            self.assert_eq(r.json()["content"], flag, "Flag content mismatch in post (friend can't access private post; не говорите что я проебался в чекере)")
 
         # Access the PROTECTED post by UUID without key — must be denied
         protected_uuid = state.get("protected_post_uuid")
