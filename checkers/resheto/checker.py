@@ -254,12 +254,12 @@ class ReshetoChecker(BaseChecker):
         self.assert_eq(research["status"], "PENDING", "Research should start as PENDING")
 
         # Ensure research is not too fast
-        time.sleep(2)
+        time.sleep(3)
         r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
-        self.assert_eq(r.status_code, 200, "Get research status failed after 2s")
+        self.assert_eq(r.status_code, 200, "Get research status failed after 3s")
         task = r.json()
         if task["status"] == "DONE":
-            self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality", "Research task finished in < 2 seconds")
+            self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality", "Research task finished in < 3 seconds")
 
         r = sess.get(f"{self.base_url}/api/research")
         self.assert_eq(r.status_code, 200, "GET research list failed")
@@ -368,19 +368,20 @@ class ReshetoChecker(BaseChecker):
         self.assert_eq(r.status_code, 200, f"Submit research failed: {r.status_code} {r.text}")
         research = r.json()
         research_uuid = research["uuid"]
-
-        # Ensure research is not too fast
-        time.sleep(1)
-        r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
-        self.assert_eq(r.status_code, 200, "Get research status failed after 1s")
-        task = r.json()
-        if task["status"] == "DONE":
-            self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality", "Research task finished in < 1 second")
+        
+        # checked in check
+        # # Ensure research is not too fast
+        # time.sleep(1)
+        # r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
+        # self.assert_eq(r.status_code, 200, "Get research status failed after 1s")
+        # task = r.json()
+        # if task["status"] == "DONE":
+        #     self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality", "Research task finished in < 1 second")
 
         # Wait for worker to process
         done = False
-        time.sleep(9)
-        for _ in range(10):
+        time.sleep(10)
+        for _ in range(5):
             r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
             self.assert_eq(r.status_code, 200, "Get research status failed")
             task = r.json()
