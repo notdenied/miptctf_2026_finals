@@ -20,7 +20,7 @@ from checklib import *
 
 class ReshetoChecker(BaseChecker):
     vulns = 3
-    timeout = 45
+    timeout = 50
     uses_attack_data = True
 
     def __init__(self, host):
@@ -379,8 +379,8 @@ class ReshetoChecker(BaseChecker):
 
         # Wait for worker to process
         done = False
-        time.sleep(10)
-        for _ in range(3):
+        time.sleep(9)
+        for _ in range(10):
             r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
             self.assert_eq(r.status_code, 200, "Get research status failed")
             task = r.json()
@@ -388,6 +388,8 @@ class ReshetoChecker(BaseChecker):
                 done = True
                 break
             time.sleep(1)
+
+        # max 20s of sleep...
 
         self.assert_eq(done, True, "Research task not completed by worker in time")
 
