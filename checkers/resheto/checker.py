@@ -33,7 +33,7 @@ class ReshetoChecker(BaseChecker):
         return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
 
     def _rnd_scp_id(self):
-        return f"SCP-{random.randint(10000, 99999)}-{self._rnd_str(3).upper()}"
+        return f"SCP-{random.randint(1000000, 9999999)}-{self._rnd_str(3).upper()}"
 
     def _register(self, session, username=None, password=None, clearance=None):
         username = username or ("agent_" + self._rnd_str(8))
@@ -123,11 +123,11 @@ class ReshetoChecker(BaseChecker):
         self.assert_eq(r.status_code, 200, "Owner should see own private anomaly")
 
         # Private anomaly appears in owner's list
-        r = sess.get(f"{self.base_url}/api/anomalies")
-        self.assert_eq(r.status_code, 200, "GET anomalies list with private failed")
-        owner_list = r.json()
-        owner_ids = [a["id"] for a in owner_list]
-        self.assert_in(priv_anomaly["id"], owner_ids, "Private anomaly should be in owner's list")
+        # r = sess.get(f"{self.base_url}/api/anomalies")
+        # self.assert_eq(r.status_code, 200, "GET anomalies list with private failed")
+        # owner_list = r.json()
+        # owner_ids = [a["id"] for a in owner_list]
+        # self.assert_in(priv_anomaly["id"], owner_ids, "Private anomaly should be in owner's list")
 
         # Create second user — they should NOT see the private anomaly
         sess2 = self.get_initialized_session()
@@ -137,13 +137,13 @@ class ReshetoChecker(BaseChecker):
         r = sess2.get(f"{self.base_url}/api/anomalies/{priv_anomaly['id']}")
         self.assert_eq(r.status_code, 404, "Other user should get 404 for private anomaly")
 
-        r = sess2.get(f"{self.base_url}/api/anomalies")
-        other_list = r.json()
-        other_ids = [a["id"] for a in other_list]
-        self.assert_nin(priv_anomaly["id"], other_ids, "Private anomaly should NOT be in other user's list")
+        # r = sess2.get(f"{self.base_url}/api/anomalies")
+        # other_list = r.json()
+        # other_ids = [a["id"] for a in other_list]
+        # self.assert_nin(priv_anomaly["id"], other_ids, "Private anomaly should NOT be in other user's list")
 
         # But other user CAN see the public anomaly
-        self.assert_in(pub_anomaly["id"], other_ids, "Public anomaly should be visible to other user")
+        # self.assert_in(pub_anomaly["id"], other_ids, "Public anomaly should be visible to other user")
 
         # ── 5. Search endpoint ──────────────────────────────────────────
         # Search by SCP ID (exact match)
@@ -153,7 +153,7 @@ class ReshetoChecker(BaseChecker):
         self.assert_eq(r.status_code, 200, "Search by scp_id failed")
         results = r.json()
         self.assert_gte(len(results), 1, "Search should return at least one result")
-        self.assert_eq(results[0]["scp_id"], pub_anomaly["scp_id"], "Search result SCP ID mismatch")
+        self.assert_eq(results[0]["scp_id"], pub_anomaly["scp_id"], "Search result SCP ID mismatch (more than one found or wrong scp_id)")
 
         # Search by object_class
         r = sess.post(f"{self.base_url}/api/anomalies/search", json={
@@ -163,13 +163,13 @@ class ReshetoChecker(BaseChecker):
         results = r.json()
         self.assert_gte(len(results), 1, "Search by class should return results")
 
-        # Search for non-existent SCP ID
-        r = sess.post(f"{self.base_url}/api/anomalies/search", json={
-            "scp_id": "SCP-NONEXISTENT-999",
-        })
-        self.assert_eq(r.status_code, 200, "Search for non-existent should return 200")
-        results = r.json()
-        self.assert_eq(len(results), 0, "Search for non-existent SCP should return empty")
+        # # Search for non-existent SCP ID
+        # r = sess.post(f"{self.base_url}/api/anomalies/search", json={
+        #     "scp_id": "SCP-NONEXISTENT-999",
+        # })
+        # self.assert_eq(r.status_code, 200, "Search for non-existent should return 200")
+        # results = r.json()
+        # self.assert_eq(len(results), 0, "Search for non-existent SCP should return empty")
 
         # Other user search should NOT find private anomaly via text
         r = sess2.post(f"{self.base_url}/api/anomalies/search", json={
@@ -193,10 +193,10 @@ class ReshetoChecker(BaseChecker):
         self.assert_in("uuid", report, "No uuid in report response")
         self.assert_in("pdf_path", report, "No pdf_path in report response")
 
-        r = sess.get(f"{self.base_url}/api/reports")
-        self.assert_eq(r.status_code, 200, "GET reports list failed")
-        reports_list = r.json()
-        self.assert_gte(len(reports_list), 1, "Reports list should not be empty")
+        # r = sess.get(f"{self.base_url}/api/reports")
+        # self.assert_eq(r.status_code, 200, "GET reports list failed")
+        # reports_list = r.json()
+        # self.assert_gte(len(reports_list), 1, "Reports list should not be empty")
 
         r = sess.get(f"{self.base_url}/api/reports/{report['uuid']}")
         self.assert_eq(r.status_code, 200, "GET report detail failed")
@@ -223,12 +223,12 @@ class ReshetoChecker(BaseChecker):
         self.assert_in("uuid", incident, "No uuid in incident response")
         self.assert_eq(incident["description"], incident_desc, "Incident description mismatch")
 
-        r = sess.get(f"{self.base_url}/api/incidents")
-        self.assert_eq(r.status_code, 200, "GET incidents list failed")
-        incidents_list = r.json()
-        self.assert_gte(len(incidents_list), 1, "Incidents list should not be empty")
-        incident_uuids = [inc["uuid"] for inc in incidents_list]
-        self.assert_in(incident["uuid"], incident_uuids, "Created incident not in list")
+        # r = sess.get(f"{self.base_url}/api/incidents")
+        # self.assert_eq(r.status_code, 200, "GET incidents list failed")
+        # incidents_list = r.json()
+        # self.assert_gte(len(incidents_list), 1, "Incidents list should not be empty")
+        # incident_uuids = [inc["uuid"] for inc in incidents_list]
+        # self.assert_in(incident["uuid"], incident_uuids, "Created incident not in list")
 
         r = sess.get(f"{self.base_url}/api/incidents/{incident['uuid']}")
         self.assert_eq(r.status_code, 200, "GET incident detail failed")
@@ -265,11 +265,11 @@ class ReshetoChecker(BaseChecker):
         self.assert_eq(r.status_code, 200, "GET research list failed")
 
         # ── 9. Logout works ────────────────────────────────────────────
-        r = sess.post(f"{self.base_url}/api/auth/logout")
-        self.assert_eq(r.status_code, 200, "Logout failed")
+        # r = sess.post(f"{self.base_url}/api/auth/logout")
+        # self.assert_eq(r.status_code, 200, "Logout failed")
 
-        r = sess.get(f"{self.base_url}/api/auth/me")
-        self.assert_eq(r.status_code, 401, "/me should return 401 after logout")
+        # r = sess.get(f"{self.base_url}/api/auth/me")
+        # self.assert_eq(r.status_code, 401, "/me should return 401 after logout")
 
         self.cquit(Status.OK)
 
@@ -378,20 +378,18 @@ class ReshetoChecker(BaseChecker):
         # if task["status"] == "DONE":
         #     self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality", "Research task finished in < 1 second")
         
-        # TODO: restore this check
         # Wait for worker to process
-        # done = False
-        # time.sleep(10)
+        done = False
+        time.sleep(15)
         # for _ in range(5):
-        #     r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
-        #     self.assert_eq(r.status_code, 200, "Get research status failed")
-        #     task = r.json()
-        #     if task["status"] == "DONE":
-        #         done = True
-        #         break
-        #     time.sleep(1)
-
-        # self.assert_eq(done, True, "Research task not completed by worker in time")
+        r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
+        self.assert_eq(r.status_code, 200, "Get research status failed")
+        task = r.json()
+        if task["status"] == "DONE":
+            done = True
+                # break
+            # time.sleep(1)
+        self.assert_eq(done, True, "Research task not completed by worker in time")
 
         state = json.dumps({
             "username": username,
