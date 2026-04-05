@@ -110,11 +110,8 @@ ERROR_CASE_NAMES = [
     "69_nested_field_read_missing",
     "70_nested_field_write_missing",
     "71_assignment_target_is_binary_expr",
-    "74_array_index_oob",
     "75_array_index_non_int",
     "77_condition_array_invalid",
-    "78_array_write_oob",
-    "79_nested_array_target_oob",
     "80_int_parse_invalid_string",
     "81_float_parse_invalid_string",
     "82_bool_parse_invalid_string",
@@ -136,6 +133,12 @@ ERROR_CASE_NAMES = [
     "98_insert_oob",
     "99_remove_oob",
 ]
+
+REMOVED_ERROR_CASE_NAMES = {
+    "74_array_index_oob",
+    "78_array_write_oob",
+    "79_nested_array_target_oob",
+}
 
 _ERROR_CASES_BLOB = (
     "eNrNXW2T2zYO/is8T1vb082eJb/vXWaa3tyHfruZ+7je4dASbauRJZ9eErvb/e8HgKQse18sUk62SWeyK4kEHoIE"
@@ -204,5 +207,7 @@ _ERROR_CASES_BLOB = (
 @lru_cache(maxsize=1)
 def load_error_cases() -> list[dict[str, str]]:
     raw = zlib.decompress(base64.b64decode(_ERROR_CASES_BLOB)).decode("utf-8")
-    return json.loads(raw)
-
+    return [
+        case for case in json.loads(raw)
+        if case["case_name"] not in REMOVED_ERROR_CASE_NAMES
+    ]

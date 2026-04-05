@@ -10,12 +10,10 @@ INTERPRETER = os.environ.get("BABUIN_INTERPRETER", "/service/babuinterpreter")
 
 
 def main() -> int:
-    print("Send one line of base64-encoded babuinterpreter source:", flush=True)
     while True:
         try:
             encoded_source = input()
         except EOFError:
-            print("client disconnected before program payload", file=sys.stderr)
             return 1
         if encoded_source:
             break

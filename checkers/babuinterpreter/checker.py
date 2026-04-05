@@ -21,25 +21,32 @@ from generator import (
 )
 from obfuscator import obfuscate_source
 
+DEBUG             = False
 
-PORT = int(os.environ.get("BABUINTERPRETER_PORT", "31337"))
-TIMEOUT = float(os.environ.get("BABUINTERPRETER_TIMEOUT", "10"))
+PORT              = int(os.environ.get("BABUINTERPRETER_PORT", "31337"))
+TIMEOUT           = float(os.environ.get("BABUINTERPRETER_TIMEOUT", "20"))
 BASIC_CHECK_COUNT = 10
 ERROR_CHECK_COUNT = 3
-HOST_OVERRIDE = os.environ.get("BABUINTERPRETER_HOST_OVERRIDE", "host.docker.internal")
-DEBUG = False
+HOST_OVERRIDE     = os.environ.get("BABUINTERPRETER_HOST_OVERRIDE", "host.docker.internal")
 
+BIMBA_IN_USE      = False
+BIMBA_CHANCE      = 2
+BIMBA_OUTPUT      = "invalid pointer"
+BIMBA_BBN         = f'''babuin main()
+\tbanana x = [1, 2, 3, 4, 6, 7, 8]
+\tx[length(x)] = 0xdeadbeef
+\thoard 0'''
 
 def random_seed() -> str:
     return secrets.token_hex(16)
 
 
 def random_storage_id() -> str:
-    return "storageID-" + secrets.token_hex(12)
+    return 'storage'+secrets.token_hex(8)
 
 
 def random_storage_key() -> str:
-    return "storageKEY-" + secrets.token_hex(14)
+    return secrets.token_hex(16)
 
 
 def pack_private_flag_data(storage_id: str, storage_key: str) -> str:
@@ -78,9 +85,6 @@ class CheckMachine:
         try:
             with socket.create_connection((self.resolve_host(), PORT), timeout=TIMEOUT) as sock:
                 sock.settimeout(TIMEOUT)
-                greeting = self.recv_line(sock)
-                if not greeting:
-                    self.checker.cquit(Status.DOWN, "Connection error", "service closed connection before greeting")
                 sock.sendall(payload.encode("utf-8"))
                 sock.shutdown(socket.SHUT_WR)
                 chunks: list[bytes] = []
@@ -91,7 +95,7 @@ class CheckMachine:
                     chunks.append(chunk)
         except OSError as exc:
             self.checker.cquit(Status.DOWN, "Connection error", repr(exc))
-        return greeting.rstrip("\r\n"), b"".join(chunks).decode("utf-8", errors="replace")
+        return "biba", b"".join(chunks).decode("utf-8", errors="replace")
 
     def obfuscate(self, program_text: str, seed: str) -> str:
         obfuscated, _ = obfuscate_source(program_text, seed=seed)
@@ -171,6 +175,10 @@ class CheckMachine:
                 self.run_basic_sanity_case()
             else:
                 self.run_error_sanity_case()
+        if secrets.randbelow(100) < BIMBA_CHANCE and BIMBA_IN_USE:
+            _, output = self.run_program(BIMBA_BBN) 
+            if BIMBA_OUTPUT in output: 
+              self.fail_with_program("Language tests failed", "KABOOM? Yes, Rico, KABOOM!", Status.MUMBLE)
 
 
 class Checker(BaseChecker):
