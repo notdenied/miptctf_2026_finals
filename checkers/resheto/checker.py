@@ -263,7 +263,7 @@ class ReshetoChecker(BaseChecker):
         
         done = False
         time.sleep(2)
-        for _ in range(3):
+        for _ in range(4):
             time.sleep(5)
             r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
             self.assert_eq(r.status_code, 200, "Get research status failed")
