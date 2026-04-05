@@ -380,7 +380,7 @@ class ReshetoChecker(BaseChecker):
         # Wait for worker to process
         done = False
         time.sleep(10)
-        for _ in range(10):
+        for _ in range(4):
             r = sess.get(f"{self.base_url}/api/research/{research_uuid}")
             self.assert_eq(r.status_code, 200, "Get research status failed")
             task = r.json()
