@@ -259,7 +259,7 @@ class ReshetoChecker(BaseChecker):
         self.assert_eq(r.status_code, 200, "Get research status failed after 3s")
         task = r.json()
         if task["status"] == "DONE":
-            self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality", "Research task finished in < 3 seconds")
+            self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality (work harder!)", "Research task finished in < 3 seconds")
 
         # r = sess.get(f"{self.base_url}/api/research")
         # self.assert_eq(r.status_code, 200, "GET research list failed")
