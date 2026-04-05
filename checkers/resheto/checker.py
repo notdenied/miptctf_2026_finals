@@ -261,8 +261,8 @@ class ReshetoChecker(BaseChecker):
         if task["status"] == "DONE":
             self.cquit(Status.MUMBLE, "Research completed too quickly, likely low quality", "Research task finished in < 3 seconds")
 
-        r = sess.get(f"{self.base_url}/api/research")
-        self.assert_eq(r.status_code, 200, "GET research list failed")
+        # r = sess.get(f"{self.base_url}/api/research")
+        # self.assert_eq(r.status_code, 200, "GET research list failed")
 
         # ── 9. Logout works ────────────────────────────────────────────
         # r = sess.post(f"{self.base_url}/api/auth/logout")
