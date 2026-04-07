@@ -1,3 +1,5 @@
+Источник: https://github.com/cR4-sh/autoforcad
+
 # How to
 > [!INFO]
 > Автоматизация адаптирована под yandex cloud
@@ -8,8 +10,8 @@
 
 Надо сделать архив с сервисами `services.tar` и положить в ansible диру, важно наличие внутри `start_all.sh`, примеры внутри диры имеются. 
 
-затем конфигурим в `./ansible/group_vars/all`: `team_count` и `players_count` - количество команд и конфигов на команду. 
-`teams.yaml` также нужно заполнить
+Затем конфигурим в `./ansible/group_vars/all`: `team_count` и `players_count` - количество команд и конфигов на команду. 
+`teams.yaml` также нужно заполнить.
 
 `./ansible/roles/forcad-setup/templates/config.yml.j2`  настраиваем конфиг форкада для сервисов.
 `./ansible/roles/forcad-setup/files/checkers` закидываем чекеры
@@ -26,10 +28,11 @@ python3 control.py start
 python3 control.py print_tokens
 ```
 
-для большей надежности в композе надо бы накинуть больше max_connections на постгрю.
-если нужно изменить `config.yml`
+У этой версии форкада есть свои плюсы и минусы -- возможно, вам больше подойдёт версия из репозитория форкада, ~~где что-то поправлено, а что-то отломано~~.
 
-## КОМАНДУ RESET НЕ ВЫПОЛНЯТЬ, ОНА ВСЁ СНОСИТ
+для большей надежности в композе надо бы накинуть больше max_connections на постгрю.
+если нужно изменить `config.yml` (осторожно, это сотрёт весь прогрес в форкаде -- делать до начала CTF)
+
 ```bash
 python3 control.py reset
 python3 control.py setup
