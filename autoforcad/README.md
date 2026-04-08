@@ -8,13 +8,16 @@
 
 Внутри terraform надо сделать `tofu init` или иным тф клиентом
 
-Надо сделать архив с сервисами `services.tar` и положить в ansible диру, важно наличие внутри `start_all.sh`, примеры внутри диры имеются. 
+А также предварительно настроить `yc` -- утилиту для работы с Я.Облаком: `yc init`.
+
+Надо сделать архив с сервисами `services.tar` и положить в ansible диру, важно наличие внутри `start_all.sh`, примеры внутри диры имеются.
+(сейчас скрипт `deploy.sh` сам соберёт архив с сервисами из `../services`)
 
 Затем конфигурим в `./ansible/group_vars/all`: `team_count` и `players_count` - количество команд и конфигов на команду. 
 `teams.yaml` также нужно заполнить.
 
 `./ansible/roles/forcad-setup/templates/config.yml.j2`  настраиваем конфиг форкада для сервисов.
-`./ansible/roles/forcad-setup/files/checkers` закидываем чекеры
+`./ansible/roles/forcad-setup/files/checkers` закидываем чекеры (сейчас `deploy.sh` тоже это делает)
 
 
 архивы для игроков положатся в `./ansible/release`
